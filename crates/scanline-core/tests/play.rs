@@ -236,6 +236,41 @@ fn the_tape_waits_until_the_ear_is_polled() {
     assert!(polling.tape_at_start());
     polling.frame().expect("play");
     assert!(!polling.tape_at_start());
+    let mut waiting = counted_then_halt();
+    waiting.load_tape(&tap_block(&[0x00, 0x00])).expect("tape");
+    waiting.frame().expect("arm");
+    assert_eq!(waiting.tape_edge(), 0);
+    waiting.frame().expect("play");
+    let moved = waiting.tape_edge();
+    assert!(moved > 0);
+    waiting.frame().expect("keep");
+    assert!(waiting.tape_edge() > moved);
+}
+
+#[test]
+fn the_pause_ends_the_last_data_pulse() {
+    let lead = 8063 * 2168 + 667 + 735 + 16 * 855;
+    let mut player = open_tape(&tap_block(&[0x00]), false).expect("tap");
+    player.advance(lead - 1);
+    let before = player.ear_high();
+    player.advance(1);
+    assert_ne!(player.ear_high(), before);
+}
+
+fn counted_then_halt() -> Machine {
+    let mut bytes = vec![0x00; 16384];
+    bytes[0] = 0x3E;
+    bytes[1] = 0xFE;
+    bytes[2] = 0x06;
+    bytes[3] = 0x00;
+    bytes[4] = 0xDB;
+    bytes[5] = 0xFE;
+    bytes[6] = 0x10;
+    bytes[7] = 0xFC;
+    bytes[8] = 0x76;
+    let mut machine = Machine::new();
+    machine.load_rom(&bytes, false).expect("rom");
+    machine
 }
 
 fn polling_rom() -> Machine {

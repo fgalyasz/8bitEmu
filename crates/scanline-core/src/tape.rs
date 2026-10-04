@@ -70,6 +70,10 @@ impl Player {
         self.index == 0 && self.into == 0 && !self.stopped
     }
 
+    pub fn edge_index(&self) -> usize {
+        self.index
+    }
+
     pub fn playing(&self) -> bool {
         !self.stopped && self.index < self.edges.len()
     }
@@ -463,8 +467,8 @@ fn append_pause(edges: &mut Vec<Edge>, pause: u16, level: &mut bool) {
         edges.push(Edge { cycles: 0, high: false, stop: true });
         return;
     }
-    edges.push(Edge { cycles: u32::from(pause) * 3500, high: false, stop: false });
-    *level = true;
+    edges.push(Edge { cycles: u32::from(pause) * 3500, high: *level, stop: false });
+    *level = !*level;
 }
 
 fn push_pulse(edges: &mut Vec<Edge>, cycles: u32, level: &mut bool) {

@@ -95,6 +95,10 @@ impl Machine {
         self.player.as_ref().is_none_or(Player::at_start)
     }
 
+    pub fn tape_edge(&self) -> usize {
+        self.player.as_ref().map(Player::edge_index).unwrap_or(0)
+    }
+
     pub fn has_tape(&self) -> bool {
         self.player.is_some()
     }
@@ -163,7 +167,9 @@ impl Machine {
             self.retire_ei();
             done += took;
         }
-        self.ear_live = self.ports.fe_reads >= 64;
+        if self.ports.fe_reads >= 64 {
+            self.ear_live = true;
+        }
         self.ports.fe_reads = 0;
         Ok(())
     }

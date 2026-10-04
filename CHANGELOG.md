@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.1 — 2026-10-04
+
+- Once the loader is reading the ear, the tape keeps playing through the leader wait. The pause after a block no longer swallows the last data pulse.
+
 ## 0.6.0 — 2026-10-04
 
 - View sets the picture to fit, 125%, 150%, 175%, or 200%. File saves a snapshot, or a standard-speed recording as TAP or TZX.
