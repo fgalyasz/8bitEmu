@@ -248,6 +248,60 @@ fn the_tape_waits_until_the_ear_is_polled() {
 }
 
 #[test]
+fn loading_sound_off_budgets_turbo_only_while_loading() {
+    let mut parked = Machine::new();
+    parked.set_loading_sound(false);
+    parked.load_rom(&vec![0x76; 16384], false).expect("halt");
+    parked.load_tape(&tap_block(&[0x00, 0x00])).expect("tape");
+    parked.frame().expect("frame");
+    assert!(parked.hears_loading());
+    assert_eq!(parked.turbo_budget(), 0);
+    let mut polling = polling_rom();
+    polling.load_tape(&tap_block(&[0x00, 0x00])).expect("tape");
+    polling.frame().expect("arm");
+    assert_eq!(polling.turbo_budget(), 0);
+    assert!(polling.hears_loading());
+    polling.set_loading_sound(false);
+    assert_eq!(polling.turbo_budget(), 32);
+    assert!(!polling.hears_loading());
+}
+
+#[test]
+fn a_quiet_load_runs_ahead_after_the_prompt() {
+    let mut heard = polling_presenter(true);
+    let mut quiet = polling_presenter(false);
+    let mut tick = 0;
+    while tick < 148 {
+        heard.on_display_tick().expect("tick");
+        quiet.on_display_tick().expect("tick");
+        tick += 1;
+    }
+    assert_eq!(heard.tape_edge(), quiet.tape_edge());
+    heard.on_display_tick().expect("step");
+    quiet.on_display_tick().expect("warp");
+    assert!(quiet.tape_edge() > heard.tape_edge());
+}
+
+fn polling_presenter(sound: bool) -> Presenter {
+    let mut presenter = Presenter::new(PresentPace::VariableRefresh);
+    presenter.load_rom(&polling_bytes(), false).expect("rom");
+    presenter.load_tape(&tap_block(&[0x00, 0x00])).expect("tape");
+    presenter.set_loading_sound(sound);
+    presenter
+}
+
+fn polling_bytes() -> Vec<u8> {
+    let mut bytes = vec![0x00; 16384];
+    bytes[0] = 0x3E;
+    bytes[1] = 0xFE;
+    bytes[2] = 0xDB;
+    bytes[3] = 0xFE;
+    bytes[4] = 0x18;
+    bytes[5] = 0xFA;
+    bytes
+}
+
+#[test]
 fn the_pause_ends_the_last_data_pulse() {
     let lead = 8063 * 2168 + 667 + 735 + 16 * 855;
     let mut player = open_tape(&tap_block(&[0x00]), false).expect("tap");
@@ -274,15 +328,8 @@ fn counted_then_halt() -> Machine {
 }
 
 fn polling_rom() -> Machine {
-    let mut bytes = vec![0x00; 16384];
-    bytes[0] = 0x3E;
-    bytes[1] = 0xFE;
-    bytes[2] = 0xDB;
-    bytes[3] = 0xFE;
-    bytes[4] = 0x18;
-    bytes[5] = 0xFA;
     let mut machine = Machine::new();
-    machine.load_rom(&bytes, false).expect("rom");
+    machine.load_rom(&polling_bytes(), false).expect("rom");
     machine
 }
 

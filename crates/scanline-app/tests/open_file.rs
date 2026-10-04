@@ -31,6 +31,7 @@ fn menu_ids_select_the_size_and_the_save() {
     assert_eq!(save_shortcut(true, true, 't'), Some(SaveKind::Tap));
     assert_eq!(save_shortcut(true, true, 'z'), Some(SaveKind::Tzx));
     assert_eq!(save_shortcut(false, false, 's'), None);
+    assert_eq!(scanline_app::LOADING_SOUND, "loading-sound");
 }
 
 #[test]

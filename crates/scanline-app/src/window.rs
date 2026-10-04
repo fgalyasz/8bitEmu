@@ -1,7 +1,7 @@
 use crate::gpu::{GpuError, Present};
 use crate::keys::{kempston_bit, spectrum_key};
 use crate::launch::Session;
-use crate::open_file::{self, OpenKind, PictureSize, SaveKind, OPEN_ID};
+use crate::open_file::{self, MenuBar, OpenKind, PictureSize, SaveKind, OPEN_ID};
 use crate::speaker::Speaker;
 use scanline_core::{
     aspect_fit, percent_size, place_percent, presented_size, BORDER, CONTENT_HEIGHT, CONTENT_WIDTH,
@@ -39,7 +39,7 @@ struct App {
     applying: bool,
     model_128: bool,
     modifiers: Modifiers,
-    menu: Option<muda::Menu>,
+    menu: Option<MenuBar>,
     picking: bool,
 }
 
@@ -98,6 +98,10 @@ impl ApplicationHandler<muda::MenuEvent> for App {
         }
         if let Some(kind) = open_file::save_kind(id) {
             self.save_as(kind);
+            return;
+        }
+        if id == open_file::LOADING_SOUND {
+            self.apply_loading_sound();
         }
     }
 
@@ -204,6 +208,9 @@ impl App {
         if down && self.select_look(code) {
             return;
         }
+        if down && self.loading_sound_key(code) {
+            return;
+        }
         if down && code == KeyCode::F12 {
             self.presenter.reset();
             return;
@@ -304,9 +311,28 @@ impl App {
         true
     }
 
+    fn apply_loading_sound(&mut self) {
+        let Some(bar) = &self.menu else {
+            return;
+        };
+        self.presenter.set_loading_sound(bar.loading_sound.is_checked());
+    }
+
+    fn loading_sound_key(&mut self, code: KeyCode) -> bool {
+        if code != KeyCode::F4 || menu_toggles_sound() {
+            return false;
+        }
+        let on = !self.presenter.loading_sound();
+        self.presenter.set_loading_sound(on);
+        true
+    }
+
     fn redraw(&mut self) {
         let frame = self.next_frame();
-        self.speaker.push(&self.presenter.take_audio());
+        let audio = self.presenter.take_audio();
+        if self.presenter.hears_loading() {
+            self.speaker.push(&audio);
+        }
         if let Some(bytes) = self.presenter.take_tap() {
             write_bytes("scanline.tap", &bytes);
         }
@@ -395,6 +421,10 @@ fn window_attrs(presenter: &Presenter) -> winit::window::WindowAttributes {
     winit::window::Window::default_attributes()
         .with_title(presenter.look().title())
         .with_inner_size(LogicalSize::new(960.0, 720.0))
+}
+
+fn menu_toggles_sound() -> bool {
+    cfg!(any(target_os = "macos", target_os = "windows"))
 }
 
 fn picture_window(percent: Option<u32>) -> (u32, u32) {

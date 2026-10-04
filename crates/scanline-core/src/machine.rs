@@ -8,6 +8,7 @@ use crate::tape::{self, Player, Recorder};
 use crate::z80::{self, Cpu, Ports};
 
 const STEP_LIMIT: u32 = 100_000;
+const TURBO_FRAMES: u32 = 32;
 const FRAME_CYCLES: u32 = 69_888;
 const SAMPLE_RATE: u32 = 48_000;
 const CPU_CLOCK: u32 = 3_500_000;
@@ -22,6 +23,7 @@ pub struct Machine {
     player: Option<Player>,
     recorder: Recorder,
     ear_live: bool,
+    loading_sound: bool,
 }
 
 impl Machine {
@@ -40,6 +42,7 @@ impl Machine {
             player: None,
             recorder: Recorder::default(),
             ear_live: false,
+            loading_sound: true,
         }
     }
 
@@ -97,6 +100,29 @@ impl Machine {
 
     pub fn tape_edge(&self) -> usize {
         self.player.as_ref().map(Player::edge_index).unwrap_or(0)
+    }
+
+    pub fn set_loading_sound(&mut self, on: bool) {
+        self.loading_sound = on;
+    }
+
+    pub fn loading_sound(&self) -> bool {
+        self.loading_sound
+    }
+
+    pub fn turbo_budget(&self) -> u32 {
+        if self.loading_sound || !self.loader_active() {
+            return 0;
+        }
+        TURBO_FRAMES
+    }
+
+    pub fn hears_loading(&self) -> bool {
+        self.loading_sound || !self.loader_active()
+    }
+
+    fn loader_active(&self) -> bool {
+        self.ear_live && self.player.as_ref().is_some_and(Player::playing)
     }
 
     pub fn has_tape(&self) -> bool {

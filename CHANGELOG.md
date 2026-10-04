@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.0 — 2026-10-04
+
+- Sound → Loading sound, and F4, switch the loading beeps. Off, the load runs ahead of the picture and those beeps are dropped. Game audio returns when the tape stops.
+
 ## 0.6.1 — 2026-10-04
 
 - Once the loader is reading the ear, the tape keeps playing through the leader wait. The pause after a block no longer swallows the last data pulse.

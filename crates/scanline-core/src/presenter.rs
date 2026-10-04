@@ -103,11 +103,48 @@ impl Presenter {
         self.machine.take_audio()
     }
 
+    pub fn set_loading_sound(&mut self, on: bool) {
+        self.machine.set_loading_sound(on);
+    }
+
+    pub fn loading_sound(&self) -> bool {
+        self.machine.loading_sound()
+    }
+
+    pub fn hears_loading(&self) -> bool {
+        self.machine.hears_loading()
+    }
+
+    pub fn tape_edge(&self) -> usize {
+        self.machine.tape_edge()
+    }
+
     pub fn on_display_tick(&mut self) -> Result<&Frame, CoreError> {
         let source = source_index(self.display_tick, self.pace);
         self.ensure_source(source)?;
+        self.warp_load()?;
         self.display_tick += 1;
         self.frame_ref()
+    }
+
+    fn warp_load(&mut self) -> Result<(), CoreError> {
+        if self.prompt_at.is_some() {
+            return Ok(());
+        }
+        let mut left = self.machine.turbo_budget();
+        while left > 0 && self.machine.turbo_budget() > 0 {
+            self.store_warp_frame()?;
+            left -= 1;
+        }
+        Ok(())
+    }
+
+    fn store_warp_frame(&mut self) -> Result<(), CoreError> {
+        let mut frame = self.machine.frame()?;
+        apply_history(&mut frame, &mut self.history)?;
+        let _ = self.machine.take_audio();
+        self.frame = Some(frame);
+        Ok(())
     }
 
     fn ensure_source(&mut self, source: u64) -> Result<(), CoreError> {

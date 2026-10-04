@@ -1,5 +1,5 @@
 use muda::accelerator::{Accelerator, Code, Modifiers, CMD_OR_CTRL};
-use muda::{Menu, MenuItem, PredefinedMenuItem, Submenu};
+use muda::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
 use rfd::FileDialog;
 use std::path::PathBuf;
 use winit::keyboard::{KeyCode, ModifiersState};
@@ -10,6 +10,12 @@ pub const SAVE_SNA: &str = "save-sna";
 pub const SAVE_TAP: &str = "save-tap";
 pub const SAVE_TZX: &str = "save-tzx";
 pub const SIZE_FIT: &str = "size-fit";
+pub const LOADING_SOUND: &str = "loading-sound";
+
+pub struct MenuBar {
+    pub menu: Menu,
+    pub loading_sound: CheckMenuItem,
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PictureSize {
@@ -101,10 +107,10 @@ pub fn pick_save(window: Option<&Window>, kind: SaveKind) -> Option<PathBuf> {
     parented(dialog, window).save_file()
 }
 
-pub fn install_menu(window: &Window) -> Option<Menu> {
-    let menu = build_menu().ok()?;
-    show_menu(window, &menu);
-    Some(menu)
+pub fn install_menu(window: &Window) -> Option<MenuBar> {
+    let bar = build_menu().ok()?;
+    show_menu(window, &bar.menu);
+    Some(bar)
 }
 
 pub fn pick_path(window: Option<&Window>) -> Option<PathBuf> {
@@ -144,10 +150,12 @@ fn command_held(state: ModifiersState) -> bool {
     }
 }
 
-fn build_menu() -> muda::Result<Menu> {
+fn build_menu() -> muda::Result<MenuBar> {
     let file = file_menu()?;
     let view = view_menu()?;
-    menu_bar(&file, &view)
+    let (sound, loading_sound) = sound_menu()?;
+    let menu = menu_bar(&file, &view, &sound)?;
+    Ok(MenuBar { menu, loading_sound })
 }
 
 fn file_menu() -> muda::Result<Submenu> {
@@ -188,14 +196,28 @@ fn open_accelerator() -> Accelerator {
     Accelerator::new(CMD_OR_CTRL, Code::KeyO)
 }
 
-fn menu_bar(file: &Submenu, view: &Submenu) -> muda::Result<Menu> {
+fn sound_menu() -> muda::Result<(Submenu, CheckMenuItem)> {
+    let loading_sound = loading_sound_item();
+    let sound = Submenu::with_items("Sound", true, &[&loading_sound])?;
+    Ok((sound, loading_sound))
+}
+
+fn loading_sound_item() -> CheckMenuItem {
+    CheckMenuItem::with_id(LOADING_SOUND, "Loading sound", true, true, Some(sound_key()))
+}
+
+fn sound_key() -> Accelerator {
+    Accelerator::new(Modifiers::empty(), Code::F4)
+}
+
+fn menu_bar(file: &Submenu, view: &Submenu, sound: &Submenu) -> muda::Result<Menu> {
     #[cfg(target_os = "macos")]
     {
         let app = Submenu::with_items("Scanline", true, &[&PredefinedMenuItem::quit(None)])?;
-        return Menu::with_items(&[&app, file, view]);
+        return Menu::with_items(&[&app, file, view, sound]);
     }
     #[cfg(not(target_os = "macos"))]
-    Menu::with_items(&[file, view])
+    Menu::with_items(&[file, view, sound])
 }
 
 fn show_menu(window: &Window, menu: &Menu) {
