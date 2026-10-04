@@ -48,6 +48,10 @@ pub enum CoreError {
         name: &'static str,
         actual: usize,
     },
+    Unsupported {
+        kind: &'static str,
+        id: u8,
+    },
 }
 
 impl fmt::Display for CoreError {
@@ -67,6 +71,7 @@ impl CoreError {
             CoreError::Opcode { opcode } => opcode_text(*opcode),
             CoreError::StepLimit => limit_text(),
             CoreError::ImageLength { name, actual } => image_text(name, *actual),
+            CoreError::Unsupported { kind, id } => unsupported_text(kind, *id),
             other => other.length_text(),
         }
     }
@@ -133,6 +138,10 @@ fn limit_text() -> String {
 
 fn image_text(name: &str, actual: usize) -> String {
     format!("{name} length {actual} is not a supported image")
+}
+
+fn unsupported_text(kind: &str, id: u8) -> String {
+    format!("{kind} {id:#04x} is not supported")
 }
 
 fn len_text(name: &str, expected: usize, actual: usize) -> String {

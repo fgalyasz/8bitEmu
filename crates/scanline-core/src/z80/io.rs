@@ -4,7 +4,10 @@ use crate::z80::Ports;
 impl Ports {
     pub fn input(&self, port: u16) -> u8 {
         if port & 0x00FF == 0x00FE {
-            return self.keys((port >> 8) as u8);
+            return self.ear(self.keys((port >> 8) as u8));
+        }
+        if port & 0x00FF == 0x001F {
+            return self.kempston;
         }
         if self.ay_selected(port) {
             return self.ay.read();
@@ -15,10 +18,19 @@ impl Ports {
     pub fn output(&mut self, memory: &mut Memory, port: u16, value: u8) {
         if port & 0x00FF == 0x00FE {
             self.border = value & 7;
+            self.mic = value & 0x08 != 0;
             self.speaker = (value >> 4) & 1;
         }
         self.page(memory, port, value);
         self.ay_write(port, value);
+    }
+
+    pub fn set_stick(&mut self, mask: u8, down: bool) {
+        if down {
+            self.kempston |= mask;
+            return;
+        }
+        self.kempston &= !mask;
     }
 
     pub fn set_key(&mut self, row: u8, mask: u8, down: bool) {
@@ -43,6 +55,16 @@ impl Ports {
             row += 1;
         }
         line | 0xE0
+    }
+
+    fn ear(&self, line: u8) -> u8 {
+        if !self.tape_on {
+            return line;
+        }
+        if self.ear_high {
+            return line | 0x40;
+        }
+        line & !0x40
     }
 
     fn page(&mut self, memory: &mut Memory, port: u16, value: u8) {

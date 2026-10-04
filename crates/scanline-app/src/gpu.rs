@@ -31,10 +31,10 @@ struct Uniforms {
     width: u32,
     height: u32,
     look: u32,
-    scale: u32,
+    picture_w: u32,
     origin_x: u32,
     origin_y: u32,
-    pad0: u32,
+    picture_h: u32,
     pad1: u32,
     palette: [[u32; 4]; 16],
 }
@@ -105,7 +105,7 @@ impl Present {
         let width = u32::from(frame.width) * scale;
         let height = u32::from(frame.height) * scale;
         let texture = target_texture(&self.device, width, height, self.format);
-        self.draw_to(&texture, frame, look, scale, origin_x, origin_y)?;
+        self.draw_to(&texture, frame, look, width, height, origin_x, origin_y)?;
         copy_texture(&self.device, &self.queue, &texture, width, height)
     }
 
@@ -114,11 +114,12 @@ impl Present {
         texture: &wgpu::Texture,
         frame: &Frame,
         look: Look,
-        scale: u32,
+        picture_w: u32,
+        picture_h: u32,
         origin_x: u32,
         origin_y: u32,
     ) -> Result<(), GpuError> {
-        let group = self.bind_group(frame, look, scale, origin_x, origin_y);
+        let group = self.bind_group(frame, look, picture_w, picture_h, origin_x, origin_y);
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
         encode(&self.device, &self.queue, &self.pipeline, &group, &view);
         Ok(())
@@ -128,11 +129,12 @@ impl Present {
         &self,
         frame: &Frame,
         look: Look,
-        scale: u32,
+        picture_w: u32,
+        picture_h: u32,
         origin_x: u32,
         origin_y: u32,
     ) -> wgpu::BindGroup {
-        let uniforms = uniform_buffer(&self.device, frame, look, scale, origin_x, origin_y);
+        let uniforms = uniform_buffer(&self.device, frame, look, picture_w, picture_h, origin_x, origin_y);
         let planes = plane_texture(&self.device, &self.queue, frame);
         let extra = extra_texture(&self.device, &self.queue, frame);
         let plane_view = planes.create_view(&wgpu::TextureViewDescriptor::default());
@@ -285,26 +287,34 @@ fn uniform_buffer(
     device: &wgpu::Device,
     frame: &Frame,
     look: Look,
-    scale: u32,
+    picture_w: u32,
+    picture_h: u32,
     origin_x: u32,
     origin_y: u32,
 ) -> wgpu::Buffer {
     device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: Some("scanline-uniforms"),
-        contents: bytemuck::bytes_of(&uniforms(frame, look, scale, origin_x, origin_y)),
+        contents: bytemuck::bytes_of(&uniforms(frame, look, picture_w, picture_h, origin_x, origin_y)),
         usage: wgpu::BufferUsages::UNIFORM,
     })
 }
 
-fn uniforms(frame: &Frame, look: Look, scale: u32, origin_x: u32, origin_y: u32) -> Uniforms {
+fn uniforms(
+    frame: &Frame,
+    look: Look,
+    picture_w: u32,
+    picture_h: u32,
+    origin_x: u32,
+    origin_y: u32,
+) -> Uniforms {
     Uniforms {
         width: u32::from(frame.width),
         height: u32::from(frame.height),
         look: look.shader_id(),
-        scale,
+        picture_w,
         origin_x,
         origin_y,
-        pad0: 0,
+        picture_h,
         pad1: 0,
         palette: palette_words(frame.palette),
     }

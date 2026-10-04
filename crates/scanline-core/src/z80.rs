@@ -56,6 +56,10 @@ pub struct Ports {
     pub pressed: [u8; 8],
     pub model_128: bool,
     pub locked: bool,
+    pub tape_on: bool,
+    pub ear_high: bool,
+    pub mic: bool,
+    pub kempston: u8,
     pub(crate) ay: ay::Ay,
 }
 

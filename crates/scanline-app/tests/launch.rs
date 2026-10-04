@@ -1,13 +1,23 @@
-use scanline_app::{parse_launch, spectrum_key};
+use scanline_app::{kempston_bit, parse_launch, spectrum_key};
 use winit::keyboard::KeyCode;
 
 #[test]
 fn flags_select_the_model_and_the_image_paths() {
-    let launch = parse_launch(&args(&["--model", "128", "--rom", "basic.rom", "--sna", "game.sna"]))
-        .expect("launch");
+    let launch = parse_launch(&args(&[
+        "--model",
+        "128",
+        "--rom",
+        "basic.rom",
+        "--sna",
+        "game.sna",
+        "--tap",
+        "game.tap",
+    ]))
+    .expect("launch");
     assert!(launch.model_128);
     assert_eq!(launch.rom.as_deref(), Some("basic.rom"));
     assert_eq!(launch.sna.as_deref(), Some("game.sna"));
+    assert_eq!(launch.tap.as_deref(), Some("game.tap"));
     let narrow = parse_launch(&args(&["--model", "48"])).expect("48");
     assert!(!narrow.model_128);
 }
@@ -28,6 +38,8 @@ fn digit_keys_reach_the_spectrum_matrix() {
     assert_eq!(spectrum_key(KeyCode::ShiftLeft), Some((0, 0x01)));
     assert_eq!(spectrum_key(KeyCode::ControlLeft), Some((7, 0x02)));
     assert_eq!(spectrum_key(KeyCode::F1), None);
+    assert_eq!(kempston_bit(KeyCode::ArrowRight), Some(0x01));
+    assert_eq!(kempston_bit(KeyCode::AltRight), Some(0x10));
 }
 
 fn args(values: &[&str]) -> Vec<String> {

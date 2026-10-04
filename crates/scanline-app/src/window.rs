@@ -1,8 +1,11 @@
-use crate::gpu::{GpuError, Present, fit_scale};
-use crate::keys::spectrum_key;
+use crate::gpu::{GpuError, Present};
+use crate::keys::{kempston_bit, spectrum_key};
 use crate::launch::Session;
 use crate::speaker::Speaker;
-use scanline_core::{Frame, Look, PresentPace, Presenter};
+use scanline_core::{
+    aspect_fit, percent_size, place_percent, presented_size, BORDER, CONTENT_HEIGHT, CONTENT_WIDTH,
+    Frame, Look, PresentPace, Presenter, Viewport,
+};
 use std::sync::Arc;
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
@@ -24,6 +27,8 @@ struct App {
     presenter: Presenter,
     speaker: Speaker,
     noted: Option<String>,
+    percent: Option<u32>,
+    applying: bool,
 }
 
 struct SurfaceState {
@@ -40,6 +45,8 @@ impl App {
             presenter,
             speaker: Speaker::open(),
             noted: None,
+            percent: None,
+            applying: false,
         }
     }
 }
@@ -98,6 +105,20 @@ impl App {
             self.presenter.reset();
             return;
         }
+        if down && self.scale_key(code) {
+            return;
+        }
+        if down && code == KeyCode::F9 {
+            self.presenter.resume_tape();
+            return;
+        }
+        if down && code == KeyCode::F11 {
+            write_named("scanline.sna", self.presenter.snapshot());
+            return;
+        }
+        if stick_key(self, code, down) {
+            return;
+        }
         hold_key_target(self, code, down);
     }
 
@@ -117,25 +138,48 @@ impl App {
     }
 
     fn resize(&mut self, width: u32, height: u32) {
+        if self.applying {
+            self.applying = false;
+        } else {
+            self.percent = None;
+        }
         if let Some(state) = &mut self.state {
             state.resize(width, height);
         }
     }
 
+    fn scale_key(&mut self, code: KeyCode) -> bool {
+        let Some(percent) = percent_from(code) else {
+            return false;
+        };
+        self.percent = Some(percent);
+        self.applying = true;
+        let (width, height) = presented_size(CONTENT_WIDTH, CONTENT_HEIGHT, BORDER);
+        let (picture_w, picture_h) = percent_size(u32::from(width), u32::from(height), percent);
+        if let Some(window) = &self.window {
+            let size = LogicalSize::new(f64::from(picture_w), f64::from(picture_h));
+            let _ = window.request_inner_size(size);
+        }
+        true
+    }
+
     fn redraw(&mut self) {
         let frame = self.next_frame();
         self.speaker.push(&self.presenter.take_audio());
+        if let Some(bytes) = self.presenter.take_tap() {
+            write_bytes("scanline.tap", &bytes);
+        }
         let Some(frame) = frame else {
             return;
         };
         let look = self.presenter.look();
-        let message = self.paint_message(&frame, look);
+        let message = self.paint_message(&frame, look, self.percent);
         self.note_message(message);
     }
 
-    fn paint_message(&mut self, frame: &Frame, look: Look) -> Option<String> {
+    fn paint_message(&mut self, frame: &Frame, look: Look, percent: Option<u32>) -> Option<String> {
         let state = self.state.as_mut()?;
-        state.paint(frame, look).err().map(|error| error.to_string())
+        state.paint(frame, look, percent).err().map(|error| error.to_string())
     }
 
     fn note_message(&mut self, message: Option<String>) {
@@ -176,16 +220,17 @@ impl SurfaceState {
             .configure(present_device(&self.present), &self.config);
     }
 
-    fn paint(&mut self, frame: &Frame, look: Look) -> Result<(), GpuError> {
+    fn paint(&mut self, frame: &Frame, look: Look, percent: Option<u32>) -> Result<(), GpuError> {
         let surface_texture = current_texture(&self.surface)?;
-        let (scale, origin_x, origin_y) = fit(frame, self.config.width, self.config.height);
+        let view = picture_view(frame, self.config.width, self.config.height, percent);
         self.present.draw_to(
             &surface_texture.texture,
             frame,
             look,
-            scale,
-            origin_x,
-            origin_y,
+            view.width,
+            view.height,
+            view.x,
+            view.y,
         )?;
         self.present.present_surface(surface_texture);
         Ok(())
@@ -196,14 +241,13 @@ fn present_device(present: &Present) -> &wgpu::Device {
     present.device()
 }
 
-fn fit(frame: &Frame, width: u32, height: u32) -> (u32, u32, u32) {
-    fit_scale(
-        u32::from(frame.width),
-        u32::from(frame.height),
-        width,
-        height,
-    )
-    .unwrap_or((1, 0, 0))
+fn picture_view(frame: &Frame, width: u32, height: u32, percent: Option<u32>) -> Viewport {
+    let src_w = u32::from(frame.width);
+    let src_h = u32::from(frame.height);
+    if let Some(percent) = percent {
+        return place_percent(src_w, src_h, width, height, percent);
+    }
+    aspect_fit(src_w, src_h, width, height)
 }
 
 fn window_attrs(presenter: &Presenter) -> winit::window::WindowAttributes {
@@ -217,6 +261,37 @@ fn hold_key_target(app: &mut App, code: KeyCode, down: bool) {
         return;
     };
     app.presenter.set_key(row, mask, down);
+}
+
+fn stick_key(app: &mut App, code: KeyCode, down: bool) -> bool {
+    let Some(mask) = kempston_bit(code) else {
+        return false;
+    };
+    app.presenter.set_stick(mask, down);
+    true
+}
+
+fn percent_from(code: KeyCode) -> Option<u32> {
+    match code {
+        KeyCode::F5 => Some(125),
+        KeyCode::F6 => Some(150),
+        KeyCode::F7 => Some(175),
+        KeyCode::F8 => Some(200),
+        _ => None,
+    }
+}
+
+fn write_named(name: &str, image: Result<Vec<u8>, impl std::fmt::Display>) {
+    match image {
+        Ok(bytes) => write_bytes(name, &bytes),
+        Err(error) => eprintln!("scanline: {error}"),
+    }
+}
+
+fn write_bytes(name: &str, bytes: &[u8]) {
+    if let Err(error) = std::fs::write(name, bytes) {
+        eprintln!("scanline: {name}: {error}");
+    }
 }
 
 fn look_from_code(code: KeyCode) -> Option<Look> {
@@ -234,6 +309,9 @@ fn presenter_from(session: Session) -> Result<Presenter, GpuError> {
         presenter
             .load_rom(&rom, session.model_128)
             .map_err(show_error)?;
+    }
+    if let Some(tape) = session.tape {
+        presenter.load_tape(&tape).map_err(show_error)?;
     }
     if let Some(sna) = session.sna {
         presenter.load_sna(&sna).map_err(show_error)?;

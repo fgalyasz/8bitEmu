@@ -14,6 +14,7 @@ mod program;
 mod sna;
 mod scale;
 mod shade;
+mod tape;
 mod temporal;
 mod z80;
 
@@ -32,7 +33,8 @@ pub use machine::{Machine, run_until_halt};
 pub use mailbox::Mailbox;
 pub use memory::Memory;
 pub use presenter::Presenter;
-pub use scale::{Viewport, centered_viewport, integer_scale};
+pub use scale::{Viewport, aspect_fit, centered_viewport, integer_scale, percent_size, place_percent};
+pub use tape::{KeyHold, Recorder, load_prompt, open_tape};
 pub use shade::shade_image;
 pub use temporal::{Blend, TemporalDecision, TemporalHistory};
 pub use z80::{Cpu, Ports, step};

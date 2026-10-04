@@ -3,12 +3,15 @@ pub struct Launch {
     pub model_128: bool,
     pub rom: Option<String>,
     pub sna: Option<String>,
+    pub tap: Option<String>,
+    pub tzx: Option<String>,
 }
 
 pub struct Session {
     pub model_128: bool,
     pub rom: Option<Vec<u8>>,
     pub sna: Option<Vec<u8>>,
+    pub tape: Option<Vec<u8>>,
 }
 
 pub fn parse_launch(args: &[String]) -> Result<Launch, String> {
@@ -16,6 +19,8 @@ pub fn parse_launch(args: &[String]) -> Result<Launch, String> {
         model_128: false,
         rom: None,
         sna: None,
+        tap: None,
+        tzx: None,
     };
     let mut index = 0;
     while index < args.len() {
@@ -29,6 +34,8 @@ fn take_arg(launch: &mut Launch, args: &[String], index: usize) -> Result<usize,
         "--model" => take_model(launch, args, index),
         "--rom" => take_path(&mut launch.rom, args, index, "--rom"),
         "--sna" => take_path(&mut launch.sna, args, index, "--sna"),
+        "--tap" => take_path(&mut launch.tap, args, index, "--tap"),
+        "--tzx" => take_path(&mut launch.tzx, args, index, "--tzx"),
         other => Err(format!("unknown argument {other}")),
     }
 }

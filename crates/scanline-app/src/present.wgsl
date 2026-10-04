@@ -2,10 +2,10 @@ struct Uniforms {
     width: u32,
     height: u32,
     look: u32,
-    scale: u32,
+    picture_w: u32,
     origin_x: u32,
     origin_y: u32,
-    pad0: u32,
+    picture_h: u32,
     pad1: u32,
     palette: array<vec4<u32>, 16>,
 }
@@ -38,10 +38,11 @@ fn fs_main(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
 }
 
 fn source_pixel(position: vec4<f32>) -> vec2<i32> {
-    let scale = max(i32(uniforms.scale), 1);
+    let picture_w = max(i32(uniforms.picture_w), 1);
+    let picture_h = max(i32(uniforms.picture_h), 1);
     let local_x = i32(position.x) - i32(uniforms.origin_x);
     let local_y = i32(position.y) - i32(uniforms.origin_y);
-    let src = vec2<i32>(local_x / scale, local_y / scale);
+    let src = vec2<i32>(local_x * i32(uniforms.width) / picture_w, local_y * i32(uniforms.height) / picture_h);
     if local_x < 0 || local_y < 0 || src.x >= i32(uniforms.width) || src.y >= i32(uniforms.height) {
         return vec2<i32>(-1, -1);
     }

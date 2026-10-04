@@ -95,6 +95,32 @@ impl Memory {
         }
     }
 
+    pub fn paging_value(&self, locked: bool) -> u8 {
+        let mut value = self.c000 as u8;
+        if self.screen == 7 {
+            value |= 0x08;
+        }
+        if self.rom_page == 1 {
+            value |= 0x10;
+        }
+        if locked {
+            value |= 0x20;
+        }
+        value
+    }
+
+    pub fn copy_bank(&self, bank: u8, dest: &mut [u8]) {
+        if bank > 7 || dest.len() != BANK {
+            return;
+        }
+        let start = usize::from(bank) * BANK;
+        let mut index = 0;
+        while index < BANK {
+            dest[index] = self.banks[start + index];
+            index += 1;
+        }
+    }
+
     pub fn bank_byte(&self, bank: u8, offset: u16) -> u8 {
         if bank > 7 || usize::from(offset) >= BANK {
             return 0;

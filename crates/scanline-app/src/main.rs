@@ -16,11 +16,20 @@ fn main() {
 }
 
 fn session_from(launch: Launch) -> Result<Session, String> {
+    let tape = choose_tape(launch.tzx, launch.tap)?;
     Ok(Session {
         model_128: launch.model_128,
         rom: read_optional(launch.rom)?,
         sna: read_optional(launch.sna)?,
+        tape,
     })
+}
+
+fn choose_tape(tzx: Option<String>, tap: Option<String>) -> Result<Option<Vec<u8>>, String> {
+    if let Some(path) = tzx {
+        return read_optional(Some(path));
+    }
+    read_optional(tap)
 }
 
 fn read_optional(path: Option<String>) -> Result<Option<Vec<u8>>, String> {

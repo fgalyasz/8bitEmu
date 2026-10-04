@@ -1,5 +1,16 @@
 use winit::keyboard::KeyCode;
 
+pub fn kempston_bit(code: KeyCode) -> Option<u8> {
+    match code {
+        KeyCode::ArrowRight => Some(0x01),
+        KeyCode::ArrowLeft => Some(0x02),
+        KeyCode::ArrowDown => Some(0x04),
+        KeyCode::ArrowUp => Some(0x08),
+        KeyCode::AltRight => Some(0x10),
+        _ => None,
+    }
+}
+
 pub fn spectrum_key(code: KeyCode) -> Option<(u8, u8)> {
     match code {
         KeyCode::ShiftLeft => Some((0, 0x01)),

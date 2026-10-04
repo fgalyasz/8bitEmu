@@ -4,6 +4,7 @@ use crate::frame::Frame;
 use crate::memory::Memory;
 use crate::program::{self, ENTRY};
 use crate::sna;
+use crate::tape::{self, Player, Recorder};
 use crate::z80::{self, Cpu, Ports};
 
 const STEP_LIMIT: u32 = 100_000;
@@ -18,6 +19,8 @@ pub struct Machine {
     booted: bool,
     audio: Vec<f32>,
     audio_acc: u32,
+    player: Option<Player>,
+    recorder: Recorder,
 }
 
 impl Machine {
@@ -33,6 +36,8 @@ impl Machine {
             booted: false,
             audio: Vec::new(),
             audio_acc: 0,
+            player: None,
+            recorder: Recorder::default(),
         }
     }
 
@@ -76,6 +81,37 @@ impl Machine {
         Ok(())
     }
 
+    pub fn load_tape(&mut self, bytes: &[u8]) -> Result<(), CoreError> {
+        self.player = Some(tape::open_tape(bytes, self.ports.model_128)?);
+        Ok(())
+    }
+
+    pub fn has_tape(&self) -> bool {
+        self.player.is_some()
+    }
+
+    pub fn is_booted(&self) -> bool {
+        self.booted
+    }
+
+    pub fn resume_tape(&mut self) {
+        if let Some(player) = &mut self.player {
+            player.resume();
+        }
+    }
+
+    pub fn snapshot(&self) -> Result<Vec<u8>, CoreError> {
+        sna::save(&self.cpu, &self.memory, &self.ports)
+    }
+
+    pub fn take_tap(&mut self) -> Option<Vec<u8>> {
+        self.recorder.take_tap()
+    }
+
+    pub fn set_stick(&mut self, mask: u8, down: bool) {
+        self.ports.set_stick(mask, down);
+    }
+
     pub fn set_key(&mut self, row: u8, mask: u8, down: bool) {
         self.ports.set_key(row, mask, down);
     }
@@ -89,24 +125,55 @@ impl Machine {
         self.ports.locked = false;
         self.ports.border = 0;
         self.ports.speaker = 0;
+        self.ports.mic = false;
         self.memory.page(0);
+        if let Some(player) = &mut self.player {
+            player.rewind();
+        }
     }
 
     fn run_cpu_frame(&mut self) -> Result<(), CoreError> {
         self.audio.clear();
         self.audio_acc = 0;
         if self.cpu.iff1 && !self.cpu.arm_ei {
-            let took = z80::accept_interrupt(&mut self.cpu, &mut self.memory);
-            self.mix(took);
+            let took = self.clocked(true)?;
+            let _ = took;
         }
         let mut done = 0u32;
         while done < FRAME_CYCLES {
-            let took = self.step_or_halt()?;
+            let took = self.clocked(false)?;
             self.retire_ei();
-            self.mix(took);
             done += took;
         }
         Ok(())
+    }
+
+    fn clocked(&mut self, interrupt: bool) -> Result<u32, CoreError> {
+        let mic = self.ports.mic;
+        self.show_ear();
+        let took = if interrupt {
+            z80::accept_interrupt(&mut self.cpu, &mut self.memory)
+        } else {
+            self.step_or_halt()?
+        };
+        self.roll_tape(took);
+        self.recorder.advance(took, mic);
+        self.mix(took);
+        Ok(took)
+    }
+
+    fn show_ear(&mut self) {
+        let playing = self.player.as_ref().is_some_and(Player::playing);
+        self.ports.tape_on = playing;
+        if let Some(player) = &self.player {
+            self.ports.ear_high = player.ear_high();
+        }
+    }
+
+    fn roll_tape(&mut self, cycles: u32) {
+        if let Some(player) = &mut self.player {
+            player.advance(cycles);
+        }
     }
 
     fn step_or_halt(&mut self) -> Result<u32, CoreError> {
