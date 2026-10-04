@@ -4,6 +4,7 @@ Cross-platform Spectrum and C64 player. With no arguments the window runs a smal
 
 ```
 cargo test
+./scripts/build-release.sh
 cargo run -p scanline-app
 cargo run -p scanline-app -- --rom image.rom
 cargo run -p scanline-app -- --model 128 --rom image.rom
@@ -15,6 +16,10 @@ cargo run -p scanline-app -- --rom image.rom --tzx game.tzx
 File → Open… chooses a `.rom`, `.sna`, `.tap`, or `.tzx`. Command-O on macOS and Ctrl-O elsewhere open the same dialog. A tape opened on a booted machine types `LOAD ""`. The tape stays parked until that loader is reading the ear, then keeps playing through the leader. File → Save Snapshot… writes an `.sna`. Save Tape as TAP… and Save Tape as TZX… write a standard-speed recording. Command-S, Command-Shift-T, and Command-Shift-Z do the same (Ctrl on the other platforms). View sets Fit, 125%, 150%, 175%, or 200%. Sound → Loading sound is on by default. Turning it off drops the loading beeps and runs the load ahead of the picture. The game is heard again when the tape stops.
 
 Keys: F1 Sharp, F2 Soft edge, F3 Temporal color, F4 loading sound, F5 125%, F6 150%, F7 175%, F8 200%, F9 resume the tape, F11 save `scanline.sna`, F12 reset, Escape quits. Dragging the window fits the picture. Digit keys and the letter rows go to the Spectrum matrix. Left Shift is Caps Shift. Right Shift and Left Control are Symbol Shift. Arrows and Right Alt are the Kempston joystick. A standard-speed `SAVE` also writes `scanline.tap` in the working directory.
+
+## Release build
+
+`./scripts/build-release.sh` writes a release executable for the computer it runs on. macOS lands in `dist/scanline-macos-<arch>/scanline`, Linux in `dist/scanline-linux-<arch>/scanline`, and Windows in `dist/scanline-windows-<arch>/scanline.exe`. Run it on each system. No ROM is copied into `dist/`.
 
 ## System ROM
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0 — 2026-10-04
+
+- `./scripts/build-release.sh` writes a release executable for the host: macOS, Linux, or Windows.
+
 ## 0.7.1 — 2026-10-04
 
 - The border follows the beam. A load draws stripes, and a border set once stays one color.
