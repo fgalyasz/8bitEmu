@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.1 — 2026-10-04
+
+- The load prompt types the LOAD keyword with J, then the quotes. The tape stays at the start until the loader is reading the ear.
+
 ## 0.5.0 — 2026-10-04
 
 - File → Open… picks a ROM, snapshot, TAP, or TZX. Command-O and Ctrl-O open the same dialog. A tape opened on a booted machine types `LOAD ""` again.

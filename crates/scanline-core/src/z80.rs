@@ -60,6 +60,7 @@ pub struct Ports {
     pub ear_high: bool,
     pub mic: bool,
     pub kempston: u8,
+    pub fe_reads: u32,
     pub(crate) ay: ay::Ay,
 }
 
@@ -294,7 +295,7 @@ fn out_port(cpu: &mut Cpu, memory: &mut Memory, ports: &mut Ports) -> bool {
     true
 }
 
-fn in_port(cpu: &mut Cpu, memory: &mut Memory, ports: &Ports) -> bool {
+fn in_port(cpu: &mut Cpu, memory: &mut Memory, ports: &mut Ports) -> bool {
     let low = fetch_byte(cpu, memory);
     let full = (u16::from(cpu.a) << 8) | u16::from(low);
     cpu.a = ports.input(full);

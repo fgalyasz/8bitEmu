@@ -38,9 +38,11 @@ fn an_unknown_tzx_block_names_its_id() {
 #[test]
 fn the_load_prompt_quotes_with_symbol_shift() {
     let frames = load_prompt();
-    assert_eq!(frames[50].len(), 1);
-    assert_eq!(frames[50][0].row, 6);
-    assert_eq!(frames[50][0].mask, 0x02);
+    assert!(frames[..100].iter().all(|frame| frame.is_empty()));
+    let first = frames.iter().find(|frame| !frame.is_empty()).expect("key");
+    assert_eq!(first.len(), 1);
+    assert_eq!(first[0].row, 6);
+    assert_eq!(first[0].mask, 0x08);
     let quote = frames.iter().find(|frame| frame.len() == 2).expect("quote");
     assert_eq!(quote[0].row, 7);
     assert_eq!(quote[0].mask, 0x02);
@@ -209,6 +211,38 @@ fn silence_and_a_wide_pulse_end_the_recording() {
     recorder.advance(350_000, false);
     recorder.advance(1, false);
     assert!(recorder.take_tap().is_none());
+}
+
+#[test]
+fn the_tape_waits_until_the_ear_is_polled() {
+    let mut parked = Machine::new();
+    parked.load_rom(&vec![0x76; 16384], false).expect("halt");
+    parked.load_tape(&tap_block(&[0x00, 0x00])).expect("tape");
+    let mut frame = 0;
+    while frame < 3 {
+        parked.frame().expect("frame");
+        frame += 1;
+    }
+    assert!(parked.tape_at_start());
+    let mut polling = polling_rom();
+    polling.load_tape(&tap_block(&[0x00, 0x00])).expect("tape");
+    polling.frame().expect("arm");
+    assert!(polling.tape_at_start());
+    polling.frame().expect("play");
+    assert!(!polling.tape_at_start());
+}
+
+fn polling_rom() -> Machine {
+    let mut bytes = vec![0x00; 16384];
+    bytes[0] = 0x3E;
+    bytes[1] = 0xFE;
+    bytes[2] = 0xDB;
+    bytes[3] = 0xFE;
+    bytes[4] = 0x18;
+    bytes[5] = 0xFA;
+    let mut machine = Machine::new();
+    machine.load_rom(&bytes, false).expect("rom");
+    machine
 }
 
 fn tap_block(data: &[u8]) -> Vec<u8> {

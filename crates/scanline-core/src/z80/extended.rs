@@ -151,7 +151,7 @@ fn step_pair(cpu: &mut Cpu, which: u8, increment: bool) {
     super::write_pair(cpu, which, next);
 }
 
-fn input_c(cpu: &mut Cpu, memory: &mut Memory, ports: &Ports, index: u8) {
+fn input_c(cpu: &mut Cpu, memory: &mut Memory, ports: &mut Ports, index: u8) {
     let value = ports.input(super::pair(cpu.b, cpu.c));
     if index != 6 {
         super::write_reg(cpu, memory, index, value);

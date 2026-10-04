@@ -21,6 +21,7 @@ pub struct Machine {
     audio_acc: u32,
     player: Option<Player>,
     recorder: Recorder,
+    ear_live: bool,
 }
 
 impl Machine {
@@ -38,6 +39,7 @@ impl Machine {
             audio_acc: 0,
             player: None,
             recorder: Recorder::default(),
+            ear_live: false,
         }
     }
 
@@ -72,18 +74,25 @@ impl Machine {
         self.ports = Ports::default();
         self.ports.model_128 = model_128;
         self.booted = true;
+        self.ear_live = false;
         Ok(())
     }
 
     pub fn load_sna(&mut self, bytes: &[u8]) -> Result<(), CoreError> {
         sna::load(&mut self.cpu, &mut self.memory, &mut self.ports, bytes)?;
         self.booted = true;
+        self.ear_live = false;
         Ok(())
     }
 
     pub fn load_tape(&mut self, bytes: &[u8]) -> Result<(), CoreError> {
         self.player = Some(tape::open_tape(bytes, self.ports.model_128)?);
+        self.ear_live = false;
         Ok(())
+    }
+
+    pub fn tape_at_start(&self) -> bool {
+        self.player.as_ref().is_none_or(Player::at_start)
     }
 
     pub fn has_tape(&self) -> bool {
@@ -130,6 +139,7 @@ impl Machine {
         if let Some(player) = &mut self.player {
             player.rewind();
         }
+        self.ear_live = false;
     }
 
     fn run_cpu_frame(&mut self) -> Result<(), CoreError> {
@@ -145,6 +155,8 @@ impl Machine {
             self.retire_ei();
             done += took;
         }
+        self.ear_live = self.ports.fe_reads >= 64;
+        self.ports.fe_reads = 0;
         Ok(())
     }
 
@@ -171,6 +183,9 @@ impl Machine {
     }
 
     fn roll_tape(&mut self, cycles: u32) {
+        if !self.ear_live {
+            return;
+        }
         if let Some(player) = &mut self.player {
             player.advance(cycles);
         }

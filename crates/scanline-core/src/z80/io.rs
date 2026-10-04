@@ -2,8 +2,9 @@ use crate::memory::Memory;
 use crate::z80::Ports;
 
 impl Ports {
-    pub fn input(&self, port: u16) -> u8 {
+    pub fn input(&mut self, port: u16) -> u8 {
         if port & 0x00FF == 0x00FE {
+            self.fe_reads = self.fe_reads.saturating_add(1);
             return self.ear(self.keys((port >> 8) as u8));
         }
         if port & 0x00FF == 0x001F {

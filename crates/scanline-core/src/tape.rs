@@ -57,11 +57,8 @@ pub fn open_tape(bytes: &[u8], model_128: bool) -> Result<Player, CoreError> {
 
 pub fn load_prompt() -> Vec<Vec<KeyHold>> {
     let mut frames = Vec::new();
-    warm(&mut frames, 50);
-    hold(&mut frames, 6, 0x02);
-    hold(&mut frames, 5, 0x02);
-    hold(&mut frames, 1, 0x01);
-    hold(&mut frames, 1, 0x04);
+    warm(&mut frames, 100);
+    hold(&mut frames, 6, 0x08);
     hold_pair(&mut frames, 7, 0x02, 5, 0x01);
     hold_pair(&mut frames, 7, 0x02, 5, 0x01);
     hold(&mut frames, 6, 0x01);
@@ -69,6 +66,10 @@ pub fn load_prompt() -> Vec<Vec<KeyHold>> {
 }
 
 impl Player {
+    pub fn at_start(&self) -> bool {
+        self.index == 0 && self.into == 0 && !self.stopped
+    }
+
     pub fn playing(&self) -> bool {
         !self.stopped && self.index < self.edges.len()
     }
@@ -548,12 +549,12 @@ fn hold_pair(frames: &mut Vec<Vec<KeyHold>>, row: u8, mask: u8, row2: u8, mask2:
 
 fn press(frames: &mut Vec<Vec<KeyHold>>, keys: Vec<KeyHold>) {
     let mut down = 0;
-    while down < 3 {
+    while down < 8 {
         frames.push(keys.clone());
         down += 1;
     }
     let mut up = 0;
-    while up < 3 {
+    while up < 4 {
         frames.push(Vec::new());
         up += 1;
     }
