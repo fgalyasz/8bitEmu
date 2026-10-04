@@ -1,6 +1,7 @@
 use crate::gpu::{GpuError, Present};
 use crate::keys::{kempston_bit, spectrum_key};
 use crate::launch::Session;
+use crate::open_file::{self, OpenKind, OPEN_ID};
 use crate::speaker::Speaker;
 use scanline_core::{
     aspect_fit, percent_size, place_percent, presented_size, BORDER, CONTENT_HEIGHT, CONTENT_WIDTH,
@@ -9,15 +10,22 @@ use scanline_core::{
 use std::sync::Arc;
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
-use winit::event::{ElementState, KeyEvent, WindowEvent};
+use winit::event::{ElementState, KeyEvent, Modifiers, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::{Window, WindowId};
 
 pub fn run(session: Session) -> Result<(), GpuError> {
+    let model_128 = session.model_128;
     let presenter = presenter_from(session)?;
-    let event_loop = EventLoop::new().map_err(show_error)?;
-    let mut app = App::new(presenter);
+    let event_loop = EventLoop::<muda::MenuEvent>::with_user_event()
+        .build()
+        .map_err(show_error)?;
+    let proxy = event_loop.create_proxy();
+    muda::MenuEvent::set_event_handler(Some(move |event| {
+        let _ = proxy.send_event(event);
+    }));
+    let mut app = App::new(presenter, model_128);
     event_loop.run_app(&mut app).map_err(show_error)
 }
 
@@ -29,6 +37,10 @@ struct App {
     noted: Option<String>,
     percent: Option<u32>,
     applying: bool,
+    model_128: bool,
+    modifiers: Modifiers,
+    menu: Option<muda::Menu>,
+    picking: bool,
 }
 
 struct SurfaceState {
@@ -38,7 +50,7 @@ struct SurfaceState {
 }
 
 impl App {
-    fn new(presenter: Presenter) -> Self {
+    fn new(presenter: Presenter, model_128: bool) -> Self {
         Self {
             window: None,
             state: None,
@@ -47,11 +59,15 @@ impl App {
             noted: None,
             percent: None,
             applying: false,
+            model_128,
+            modifiers: Modifiers::default(),
+            menu: None,
+            picking: false,
         }
     }
 }
 
-impl ApplicationHandler for App {
+impl ApplicationHandler<muda::MenuEvent> for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         if self.window.is_some() {
             return;
@@ -63,9 +79,16 @@ impl ApplicationHandler for App {
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
             WindowEvent::KeyboardInput { event, .. } => self.key(event_loop, event),
+            WindowEvent::ModifiersChanged(modifiers) => self.modifiers = modifiers,
             WindowEvent::Resized(size) => self.resize(size.width, size.height),
             WindowEvent::RedrawRequested => self.redraw(),
             _ => {}
+        }
+    }
+
+    fn user_event(&mut self, _event_loop: &ActiveEventLoop, event: muda::MenuEvent) {
+        if event.id == OPEN_ID {
+            self.choose_file();
         }
     }
 
@@ -83,7 +106,71 @@ impl App {
         };
         let window = Arc::new(window);
         self.state = SurfaceState::new(window.clone()).ok();
+        self.menu = open_file::install_menu(&window);
         self.window = Some(window);
+    }
+
+    fn choose_file(&mut self) {
+        if self.picking {
+            return;
+        }
+        self.picking = true;
+        let path = open_file::pick_path(self.window.as_deref());
+        self.picking = false;
+        if let Some(path) = path {
+            self.load_path(&path);
+        }
+    }
+
+    fn load_path(&mut self, path: &std::path::Path) {
+        let bytes = match std::fs::read(path) {
+            Ok(bytes) => bytes,
+            Err(error) => {
+                eprintln!("scanline: {}: {error}", path.display());
+                return;
+            }
+        };
+        self.load_bytes(&path.to_string_lossy(), &bytes);
+    }
+
+    fn load_bytes(&mut self, name: &str, bytes: &[u8]) {
+        let Some(kind) = open_file::open_kind(name) else {
+            eprintln!("scanline: {name} is not a rom, sna, tap, or tzx");
+            return;
+        };
+        if let Err(error) = self.apply_open(kind, bytes) {
+            eprintln!("scanline: {error}");
+        }
+    }
+
+    fn apply_open(&mut self, kind: OpenKind, bytes: &[u8]) -> Result<(), scanline_core::CoreError> {
+        match kind {
+            OpenKind::Rom => self.open_rom(bytes),
+            OpenKind::Sna => self.open_sna(bytes),
+            OpenKind::Tape => self.open_tape(bytes),
+        }
+    }
+
+    fn open_rom(&mut self, bytes: &[u8]) -> Result<(), scanline_core::CoreError> {
+        let model = open_file::rom_model_128(bytes.len(), self.model_128);
+        self.presenter.load_rom(bytes, model)?;
+        self.model_128 = model;
+        Ok(())
+    }
+
+    fn open_sna(&mut self, bytes: &[u8]) -> Result<(), scanline_core::CoreError> {
+        self.presenter.load_sna(bytes)?;
+        self.model_128 = open_file::sna_model_128(bytes.len(), self.model_128);
+        Ok(())
+    }
+
+    fn open_tape(&mut self, bytes: &[u8]) -> Result<(), scanline_core::CoreError> {
+        let booted = self.presenter.is_booted();
+        self.presenter.load_tape(bytes)?;
+        if booted {
+            self.presenter.reset();
+        }
+        Ok(())
     }
 
     fn key(&mut self, event_loop: &ActiveEventLoop, event: KeyEvent) {
@@ -96,6 +183,10 @@ impl App {
         let down = event.state == ElementState::Pressed;
         if down && code == KeyCode::Escape {
             event_loop.exit();
+            return;
+        }
+        if down && open_file::command_open(self.modifiers.state(), code) {
+            self.choose_file();
             return;
         }
         if down && self.select_look(code) {

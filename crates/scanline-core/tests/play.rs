@@ -182,6 +182,7 @@ fn the_prompt_runs_once_after_a_tape_is_inserted() {
     let mut presenter = Presenter::new(PresentPace::Fixed60Hz);
     let rom = vec![0x76u8; 16384];
     presenter.load_rom(&rom, false).expect("rom");
+    assert!(presenter.is_booted());
     presenter.load_tape(&tap_block(&[0x00, 0x00])).expect("tape");
     let mut tick = 0u64;
     while tick < 120 {

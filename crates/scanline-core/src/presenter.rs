@@ -81,6 +81,10 @@ impl Presenter {
         self.machine.set_key(row, mask, down);
     }
 
+    pub fn is_booted(&self) -> bool {
+        self.machine.is_booted()
+    }
+
     pub fn reset(&mut self) {
         self.machine.reset();
         self.shown = None;
