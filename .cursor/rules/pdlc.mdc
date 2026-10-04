@@ -1,0 +1,12 @@
+---
+description: Run the Scanline product PDLC for every new feature and user-visible bugfix
+alwaysApply: true
+---
+
+# Product PDLC
+
+When the user asks for a **new feature** or a **user-visible bugfix**, follow `docs/pdlc.md` in full. Do not wait for them to list PRD, epic, GitHub Project, tests, build, or push.
+
+Chores (typo, process-only, no behavior change) skip PRD, GitHub epic, project items, DMG, and website copy.
+
+Chat is Hungarian. Code, PRDs, GitHub, and commits are English.

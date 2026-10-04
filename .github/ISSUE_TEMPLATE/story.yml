@@ -1,0 +1,45 @@
+name: Story
+description: Story, dev, or test item under an epic (PDLC step 4)
+title: "[STORY] "
+labels: []
+body:
+  - type: input
+    id: parent
+    attributes:
+      label: Parent epic or story
+      placeholder: "#1"
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind
+      options:
+        - STORY
+        - DEV
+        - TEST
+        - FIX
+    validations:
+      required: true
+  - type: textarea
+    id: traces
+    attributes:
+      label: Traces
+      description: FR IDs from the PRD
+      value: |
+        FR-
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: Done when
+      value: |
+        - Tests pass (`cargo test`)
+        - Behavior matches the FR consequences
+    validations:
+      required: true
+  - type: markdown
+    attributes:
+      value: |
+        Create with `--parent` on the epic or story. Add to [project #10](https://github.com/users/fgalyasz/projects/10): `./scripts/pdlc-project-item.sh <n> "Todo"`.

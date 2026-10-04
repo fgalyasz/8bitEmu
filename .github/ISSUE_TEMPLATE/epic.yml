@@ -1,0 +1,39 @@
+name: Epic
+description: Product increment with a PRD (PDLC step 4)
+title: "[EPIC] "
+labels: []
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One user-visible goal. Hungarian talk stays in chat; this issue is English.
+    validations:
+      required: true
+  - type: input
+    id: prd
+    attributes:
+      label: PRD path
+      placeholder: _bmad-output/planning-artifacts/prds/prd-Scanline-slug/prd.md
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: In scope
+      value: |
+        - FR-1
+    validations:
+      required: true
+  - type: textarea
+    id: stories
+    attributes:
+      label: Stories
+      value: |
+        - [ ] [STORY] #N.1
+    validations:
+      required: true
+  - type: markdown
+    attributes:
+      value: |
+        Add this epic and every sub-issue to [Scanline project #10](https://github.com/users/fgalyasz/projects/10) with `./scripts/pdlc-project-item.sh <n> "Todo"`.
