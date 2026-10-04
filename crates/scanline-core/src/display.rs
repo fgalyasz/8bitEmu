@@ -15,10 +15,14 @@ pub fn attribute_address(x: u16, y: u16) -> u16 {
 }
 
 pub fn frame_from(memory: &Memory, border: u8) -> Result<Frame, CoreError> {
-    compose(&content_from(memory, border))
+    frame_with_border(memory, &fill_border(border & 7))
 }
 
-fn content_from(memory: &Memory, border: u8) -> Content {
+pub fn frame_with_border(memory: &Memory, rows: &[u8]) -> Result<Frame, CoreError> {
+    compose(&content_from(memory, rows))
+}
+
+fn content_from(memory: &Memory, rows: &[u8]) -> Content {
     Content {
         width: CONTENT_WIDTH,
         height: CONTENT_HEIGHT,
@@ -26,7 +30,7 @@ fn content_from(memory: &Memory, border: u8) -> Content {
         attributes: attributes(memory),
         flash_on: false,
         border_px: BORDER,
-        border: border_rows(border & 7),
+        border: rows.to_vec(),
         sprites: Vec::new(),
         palette: PaletteKind::Ula,
     }
@@ -77,7 +81,7 @@ fn decode_attribute(value: u8) -> Attribute {
     }
 }
 
-fn border_rows(color: u8) -> Vec<u8> {
+fn fill_border(color: u8) -> Vec<u8> {
     let mut rows = Vec::new();
     let height = CONTENT_HEIGHT + BORDER * 2;
     let mut y = 0u16;

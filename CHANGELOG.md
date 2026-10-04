@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.1 — 2026-10-04
+
+- The border follows the beam. A load draws stripes, and a border set once stays one color.
+
 ## 0.7.0 — 2026-10-04
 
 - Sound → Loading sound, and F4, switch the loading beeps. Off, the load runs ahead of the picture and those beeps are dropped. Game audio returns when the tape stops.

@@ -1,6 +1,6 @@
-use crate::display::frame_from;
+use crate::display::{frame_from, frame_with_border};
 use crate::error::CoreError;
-use crate::frame::Frame;
+use crate::frame::{Frame, BORDER, CONTENT_HEIGHT};
 use crate::memory::Memory;
 use crate::program::{self, ENTRY};
 use crate::sna;
@@ -10,6 +10,8 @@ use crate::z80::{self, Cpu, Ports};
 const STEP_LIMIT: u32 = 100_000;
 const TURBO_FRAMES: u32 = 32;
 const FRAME_CYCLES: u32 = 69_888;
+const LINE_CYCLES: u32 = 224;
+const FIRST_VISIBLE_LINE: u32 = 48;
 const SAMPLE_RATE: u32 = 48_000;
 const CPU_CLOCK: u32 = 3_500_000;
 
@@ -24,6 +26,7 @@ pub struct Machine {
     recorder: Recorder,
     ear_live: bool,
     loading_sound: bool,
+    border_rows: Vec<u8>,
 }
 
 impl Machine {
@@ -43,15 +46,16 @@ impl Machine {
             recorder: Recorder::default(),
             ear_live: false,
             loading_sound: true,
+            border_rows: Vec::new(),
         }
     }
 
     pub fn frame(&mut self) -> Result<Frame, CoreError> {
         if self.booted {
             self.run_cpu_frame()?;
-        } else {
-            run_until_halt(&mut self.cpu, &mut self.memory, &mut self.ports)?;
+            return frame_with_border(&self.memory, &self.border_rows);
         }
+        run_until_halt(&mut self.cpu, &mut self.memory, &mut self.ports)?;
         frame_from(&self.memory, self.ports.border)
     }
 
@@ -183,21 +187,51 @@ impl Machine {
     fn run_cpu_frame(&mut self) -> Result<(), CoreError> {
         self.audio.clear();
         self.audio_acc = 0;
+        self.border_rows = vec![self.ports.border & 7; visible_rows()];
+        let mut beam = self.open_frame()?;
+        let mut next = 0u32;
+        self.paint_reached(beam, &mut next);
+        self.run_to_frame_end(&mut beam, &mut next)?;
+        self.finish_ear();
+        Ok(())
+    }
+
+    fn open_frame(&mut self) -> Result<u32, CoreError> {
         if self.cpu.iff1 && !self.cpu.arm_ei {
-            let took = self.clocked(true)?;
-            let _ = took;
+            return self.clocked(true);
         }
+        Ok(0)
+    }
+
+    fn run_to_frame_end(&mut self, beam: &mut u32, next: &mut u32) -> Result<(), CoreError> {
         let mut done = 0u32;
         while done < FRAME_CYCLES {
-            let took = self.clocked(false)?;
-            self.retire_ei();
-            done += took;
+            done += self.step_frame(beam, next)?;
         }
+        Ok(())
+    }
+
+    fn step_frame(&mut self, beam: &mut u32, next: &mut u32) -> Result<u32, CoreError> {
+        let took = self.clocked(false)?;
+        self.retire_ei();
+        *beam += took;
+        self.paint_reached(*beam, next);
+        Ok(took)
+    }
+
+    fn paint_reached(&mut self, beam: u32, next: &mut u32) {
+        let color = self.ports.border & 7;
+        while *next < self.border_rows.len() as u32 && line_start(*next) <= beam {
+            self.border_rows[*next as usize] = color;
+            *next += 1;
+        }
+    }
+
+    fn finish_ear(&mut self) {
         if self.ports.fe_reads >= 64 {
             self.ear_live = true;
         }
         self.ports.fe_reads = 0;
-        Ok(())
     }
 
     fn clocked(&mut self, interrupt: bool) -> Result<u32, CoreError> {
@@ -288,6 +322,14 @@ fn resume(cpu: &mut Cpu) {
     }
     cpu.halted = false;
     cpu.pc = cpu.pc.wrapping_add(1);
+}
+
+fn visible_rows() -> usize {
+    usize::from(CONTENT_HEIGHT + BORDER * 2)
+}
+
+fn line_start(row: u32) -> u32 {
+    (FIRST_VISIBLE_LINE + row) * LINE_CYCLES
 }
 
 fn push_samples(audio: &mut Vec<f32>, sample: f32, count: u32) {

@@ -1,6 +1,6 @@
 # Scanline
 
-Cross-platform Spectrum and C64 player. With no arguments the window runs a small Z80 program in 48K RAM: blue border, three bright lines, and a cell that steps through the ink colors. Pass a ROM or an SNA the user already has to boot a 48K or basic 128K Spectrum. A TAP or TZX plays through the ear bit, and a booted machine types `LOAD ""`. The picture fits the window, or snaps to 125%, 150%, 175%, and 200%. No ROM is included.
+Cross-platform Spectrum and C64 player. With no arguments the window runs a small Z80 program in 48K RAM: blue border, three bright lines, and a cell that steps through the ink colors. Pass a ROM or an SNA the user already has to boot a 48K or basic 128K Spectrum. A TAP or TZX plays through the ear bit, and a booted machine types `LOAD ""`. The picture fits the window, or snaps to 125%, 150%, 175%, and 200%. The border changes with the beam, so a load is striped. No ROM is included.
 
 ```
 cargo test

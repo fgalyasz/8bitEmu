@@ -155,6 +155,36 @@ fn beeper_and_ay_reach_the_frame_buffer() {
 }
 
 #[test]
+fn the_border_stripes_when_it_changes_during_the_frame() {
+    let mut striped = Machine::new();
+    striped.load_rom(&striped_border(), false).expect("rom");
+    let frame = striped.frame().expect("frame");
+    assert_eq!(border_at(&frame, 0), 1);
+    assert_eq!(border_at(&frame, frame.height - 1), 2);
+    let mut steady = Machine::new();
+    steady.load_rom(&program(&[0x3E, 0x05, 0xD3, 0xFE, 0x76]), false).expect("rom");
+    let flat = steady.frame().expect("frame");
+    assert_eq!(border_at(&flat, 0), 5);
+    assert_eq!(border_at(&flat, flat.height / 2), 5);
+    assert_eq!(border_at(&flat, flat.height - 1), 5);
+}
+
+fn striped_border() -> Vec<u8> {
+    let mut bytes = vec![0x3E, 0x01, 0xD3, 0xFE];
+    let mut loops = 0;
+    while loops < 4 {
+        bytes.extend_from_slice(&[0x06, 0x00, 0x10, 0xFE]);
+        loops += 1;
+    }
+    bytes.extend_from_slice(&[0x3E, 0x02, 0xD3, 0xFE, 0x76]);
+    program(&bytes)
+}
+
+fn border_at(frame: &scanline_core::Frame, y: u16) -> u8 {
+    frame.index[usize::from(y) * usize::from(frame.width)]
+}
+
+#[test]
 fn reset_returns_to_address_zero_without_dropping_the_bank() {
     let mut machine = Machine::new();
     machine
