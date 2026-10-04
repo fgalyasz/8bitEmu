@@ -142,7 +142,21 @@ impl Recorder {
             return None;
         }
         self.dirty = false;
+        self.tap_bytes()
+    }
+
+    pub fn tap_bytes(&self) -> Option<Vec<u8>> {
+        if self.blocks.is_empty() {
+            return None;
+        }
         Some(encode_tap(&self.blocks))
+    }
+
+    pub fn tzx_bytes(&self) -> Option<Vec<u8>> {
+        if self.blocks.is_empty() {
+            return None;
+        }
+        Some(encode_tzx(&self.blocks))
     }
 
     fn flip(&mut self, cycles: u32, level: bool) {
@@ -516,6 +530,24 @@ fn skip_sync(pulses: &[u32], mut index: usize) -> usize {
 
 fn is_pilot(width: u32) -> bool {
     (1400..3000).contains(&width)
+}
+
+fn encode_tzx(blocks: &[Vec<u8>]) -> Vec<u8> {
+    let mut out = b"ZXTape!\x1a\x01\x14".to_vec();
+    let mut index = 0;
+    while index < blocks.len() {
+        push_standard(&mut out, &blocks[index]);
+        index += 1;
+    }
+    out
+}
+
+fn push_standard(out: &mut Vec<u8>, data: &[u8]) {
+    let len = data.len() as u16;
+    out.push(0x10);
+    out.extend_from_slice(&1000u16.to_le_bytes());
+    out.extend_from_slice(&len.to_le_bytes());
+    out.extend_from_slice(data);
 }
 
 fn encode_tap(blocks: &[Vec<u8>]) -> Vec<u8> {

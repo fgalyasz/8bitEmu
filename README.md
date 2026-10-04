@@ -12,9 +12,9 @@ cargo run -p scanline-app -- --rom image.rom --tap game.tap
 cargo run -p scanline-app -- --rom image.rom --tzx game.tzx
 ```
 
-File → Open… chooses a `.rom`, `.sna`, `.tap`, or `.tzx`. Command-O on macOS and Ctrl-O elsewhere open the same dialog. A tape opened on a booted machine types `LOAD ""`. The tape stays parked until that loader is reading the ear.
+File → Open… chooses a `.rom`, `.sna`, `.tap`, or `.tzx`. Command-O on macOS and Ctrl-O elsewhere open the same dialog. A tape opened on a booted machine types `LOAD ""`. The tape stays parked until that loader is reading the ear. File → Save Snapshot… writes an `.sna`. Save Tape as TAP… and Save Tape as TZX… write a standard-speed recording. Command-S, Command-Shift-T, and Command-Shift-Z do the same (Ctrl on the other platforms). View sets Fit, 125%, 150%, 175%, or 200%.
 
-Keys: F1 Sharp, F2 Soft edge, F3 Temporal color, F5 125%, F6 150%, F7 175%, F8 200%, F9 resume the tape, F11 save `scanline.sna`, F12 reset, Escape quits. Dragging the window fits the picture. Digit keys and the letter rows go to the Spectrum matrix. Left Shift is Caps Shift. Right Shift and Left Control are Symbol Shift. Arrows and Right Alt are the Kempston joystick. A standard-speed `SAVE` writes `scanline.tap` in the working directory.
+Keys: F1 Sharp, F2 Soft edge, F3 Temporal color, F5 125%, F6 150%, F7 175%, F8 200%, F9 resume the tape, F11 save `scanline.sna`, F12 reset, Escape quits. Dragging the window fits the picture. Digit keys and the letter rows go to the Spectrum matrix. Left Shift is Caps Shift. Right Shift and Left Control are Symbol Shift. Arrows and Right Alt are the Kempston joystick. A standard-speed `SAVE` also writes `scanline.tap` in the working directory.
 
 ## System ROM
 

@@ -1,4 +1,4 @@
-use muda::accelerator::{Accelerator, Code, CMD_OR_CTRL};
+use muda::accelerator::{Accelerator, Code, Modifiers, CMD_OR_CTRL};
 use muda::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 use rfd::FileDialog;
 use std::path::PathBuf;
@@ -6,6 +6,23 @@ use winit::keyboard::{KeyCode, ModifiersState};
 use winit::window::Window;
 
 pub const OPEN_ID: &str = "open";
+pub const SAVE_SNA: &str = "save-sna";
+pub const SAVE_TAP: &str = "save-tap";
+pub const SAVE_TZX: &str = "save-tzx";
+pub const SIZE_FIT: &str = "size-fit";
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PictureSize {
+    Fit,
+    Percent(u32),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SaveKind {
+    Sna,
+    Tap,
+    Tzx,
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum OpenKind {
@@ -35,6 +52,53 @@ pub fn sna_model_128(len: usize, current: bool) -> bool {
 
 pub fn command_open(state: ModifiersState, code: KeyCode) -> bool {
     code == KeyCode::KeyO && command_held(state)
+}
+
+pub fn picture_size(id: &str) -> Option<PictureSize> {
+    match id {
+        SIZE_FIT => Some(PictureSize::Fit),
+        "size-125" => Some(PictureSize::Percent(125)),
+        "size-150" => Some(PictureSize::Percent(150)),
+        "size-175" => Some(PictureSize::Percent(175)),
+        "size-200" => Some(PictureSize::Percent(200)),
+        _ => None,
+    }
+}
+
+pub fn save_kind(id: &str) -> Option<SaveKind> {
+    match id {
+        SAVE_SNA => Some(SaveKind::Sna),
+        SAVE_TAP => Some(SaveKind::Tap),
+        SAVE_TZX => Some(SaveKind::Tzx),
+        _ => None,
+    }
+}
+
+pub fn save_shortcut(command: bool, shift: bool, letter: char) -> Option<SaveKind> {
+    if !command {
+        return None;
+    }
+    shortcut_letter(shift, letter)
+}
+
+pub fn ensure_extension(path: &str, ext: &str) -> String {
+    if extension(path).is_some_and(|found| found.eq_ignore_ascii_case(ext)) {
+        return path.to_string();
+    }
+    format!("{path}.{ext}")
+}
+
+pub fn command_save(state: ModifiersState, code: KeyCode) -> Option<SaveKind> {
+    let letter = save_letter(code)?;
+    save_shortcut(command_held(state), state.shift_key(), letter)
+}
+
+pub fn pick_save(window: Option<&Window>, kind: SaveKind) -> Option<PathBuf> {
+    let dialog = FileDialog::new()
+        .set_title(kind.label())
+        .set_file_name(kind.file_name())
+        .add_filter(kind.label(), &[kind.extension()]);
+    parented(dialog, window).save_file()
 }
 
 pub fn install_menu(window: &Window) -> Option<Menu> {
@@ -81,9 +145,39 @@ fn command_held(state: ModifiersState) -> bool {
 }
 
 fn build_menu() -> muda::Result<Menu> {
+    let file = file_menu()?;
+    let view = view_menu()?;
+    menu_bar(&file, &view)
+}
+
+fn file_menu() -> muda::Result<Submenu> {
     let open = open_item();
-    let file = Submenu::with_items("File", true, &[&open])?;
-    menu_with_file(&file)
+    let separator = PredefinedMenuItem::separator();
+    let sna = save_item(SaveKind::Sna);
+    let tap = save_item(SaveKind::Tap);
+    let tzx = save_item(SaveKind::Tzx);
+    Submenu::with_items("File", true, &[&open, &separator, &sna, &tap, &tzx])
+}
+
+fn view_menu() -> muda::Result<Submenu> {
+    let fit = MenuItem::with_id(SIZE_FIT, "Fit", true, None);
+    let separator = PredefinedMenuItem::separator();
+    let p125 = percent_item(125, Code::F5);
+    let p150 = percent_item(150, Code::F6);
+    let p175 = percent_item(175, Code::F7);
+    let p200 = percent_item(200, Code::F8);
+    Submenu::with_items("View", true, &[&fit, &separator, &p125, &p150, &p175, &p200])
+}
+
+fn save_item(kind: SaveKind) -> MenuItem {
+    MenuItem::with_id(kind.id(), kind.label(), true, Some(kind.accelerator()))
+}
+
+fn percent_item(percent: u32, code: Code) -> MenuItem {
+    let id = format!("size-{percent}");
+    let label = format!("{percent}%");
+    let shortcut = Accelerator::new(Modifiers::empty(), code);
+    MenuItem::with_id(id, label, true, Some(shortcut))
 }
 
 fn open_item() -> MenuItem {
@@ -94,14 +188,14 @@ fn open_accelerator() -> Accelerator {
     Accelerator::new(CMD_OR_CTRL, Code::KeyO)
 }
 
-fn menu_with_file(file: &Submenu) -> muda::Result<Menu> {
+fn menu_bar(file: &Submenu, view: &Submenu) -> muda::Result<Menu> {
     #[cfg(target_os = "macos")]
     {
         let app = Submenu::with_items("Scanline", true, &[&PredefinedMenuItem::quit(None)])?;
-        return Menu::with_items(&[&app, file]);
+        return Menu::with_items(&[&app, file, view]);
     }
     #[cfg(not(target_os = "macos"))]
-    Menu::with_items(&[file])
+    Menu::with_items(&[file, view])
 }
 
 fn show_menu(window: &Window, menu: &Menu) {
@@ -141,4 +235,89 @@ fn parented(dialog: FileDialog, window: Option<&Window>) -> FileDialog {
         return dialog;
     };
     dialog.set_parent(window)
+}
+
+impl PictureSize {
+    pub fn percent(self) -> Option<u32> {
+        match self {
+            Self::Fit => None,
+            Self::Percent(percent) => Some(percent),
+        }
+    }
+}
+
+impl SaveKind {
+    pub fn id(self) -> &'static str {
+        match self {
+            Self::Sna => SAVE_SNA,
+            Self::Tap => SAVE_TAP,
+            Self::Tzx => SAVE_TZX,
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Sna => "Save Snapshot…",
+            Self::Tap => "Save Tape as TAP…",
+            Self::Tzx => "Save Tape as TZX…",
+        }
+    }
+
+    pub fn file_name(self) -> &'static str {
+        match self {
+            Self::Sna => "scanline.sna",
+            Self::Tap => "scanline.tap",
+            Self::Tzx => "scanline.tzx",
+        }
+    }
+
+    pub fn extension(self) -> &'static str {
+        match self {
+            Self::Sna => "sna",
+            Self::Tap => "tap",
+            Self::Tzx => "tzx",
+        }
+    }
+
+    fn accelerator(self) -> Accelerator {
+        let mods = save_modifiers(self);
+        Accelerator::new(mods, save_code(self))
+    }
+}
+
+fn save_modifiers(kind: SaveKind) -> Modifiers {
+    if kind == SaveKind::Sna {
+        return CMD_OR_CTRL;
+    }
+    CMD_OR_CTRL | Modifiers::SHIFT
+}
+
+fn save_code(kind: SaveKind) -> Code {
+    match kind {
+        SaveKind::Sna => Code::KeyS,
+        SaveKind::Tap => Code::KeyT,
+        SaveKind::Tzx => Code::KeyZ,
+    }
+}
+
+fn shortcut_letter(shift: bool, letter: char) -> Option<SaveKind> {
+    if !shift && letter == 's' {
+        return Some(SaveKind::Sna);
+    }
+    if shift && letter == 't' {
+        return Some(SaveKind::Tap);
+    }
+    if shift && letter == 'z' {
+        return Some(SaveKind::Tzx);
+    }
+    None
+}
+
+fn save_letter(code: KeyCode) -> Option<char> {
+    match code {
+        KeyCode::KeyS => Some('s'),
+        KeyCode::KeyT => Some('t'),
+        KeyCode::KeyZ => Some('z'),
+        _ => None,
+    }
 }

@@ -73,6 +73,14 @@ impl Presenter {
         self.machine.take_tap()
     }
 
+    pub fn tap_bytes(&self) -> Option<Vec<u8>> {
+        self.machine.tap_bytes()
+    }
+
+    pub fn tzx_bytes(&self) -> Option<Vec<u8>> {
+        self.machine.tzx_bytes()
+    }
+
     pub fn set_stick(&mut self, mask: u8, down: bool) {
         self.machine.set_stick(mask, down);
     }

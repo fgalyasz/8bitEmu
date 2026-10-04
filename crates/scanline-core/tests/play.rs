@@ -96,6 +96,12 @@ fn standard_speed_pulses_decode_to_the_recorded_byte() {
     recorder.advance(350_000, false);
     let saved = recorder.take_tap().expect("tap");
     assert_eq!(saved, vec![1, 0, 0x42]);
+    assert_eq!(recorder.tap_bytes().as_ref(), Some(&saved));
+    let tzx = recorder.tzx_bytes().expect("tzx");
+    assert_eq!(&tzx[..10], b"ZXTape!\x1a\x01\x14");
+    open_tape(&tzx, false).expect("tzx");
+    assert!(Recorder::default().tap_bytes().is_none());
+    assert!(Recorder::default().tzx_bytes().is_none());
 }
 
 #[test]

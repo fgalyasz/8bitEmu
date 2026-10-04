@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.0 — 2026-10-04
+
+- View sets the picture to fit, 125%, 150%, 175%, or 200%. File saves a snapshot, or a standard-speed recording as TAP or TZX.
+
 ## 0.5.1 — 2026-10-04
 
 - The load prompt types the LOAD keyword with J, then the quotes. The tape stays at the start until the loader is reading the ear.

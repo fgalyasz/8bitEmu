@@ -117,6 +117,14 @@ impl Machine {
         self.recorder.take_tap()
     }
 
+    pub fn tap_bytes(&self) -> Option<Vec<u8>> {
+        self.recorder.tap_bytes()
+    }
+
+    pub fn tzx_bytes(&self) -> Option<Vec<u8>> {
+        self.recorder.tzx_bytes()
+    }
+
     pub fn set_stick(&mut self, mask: u8, down: bool) {
         self.ports.set_stick(mask, down);
     }

@@ -1,7 +1,7 @@
 use crate::gpu::{GpuError, Present};
 use crate::keys::{kempston_bit, spectrum_key};
 use crate::launch::Session;
-use crate::open_file::{self, OpenKind, OPEN_ID};
+use crate::open_file::{self, OpenKind, PictureSize, SaveKind, OPEN_ID};
 use crate::speaker::Speaker;
 use scanline_core::{
     aspect_fit, percent_size, place_percent, presented_size, BORDER, CONTENT_HEIGHT, CONTENT_WIDTH,
@@ -87,8 +87,17 @@ impl ApplicationHandler<muda::MenuEvent> for App {
     }
 
     fn user_event(&mut self, _event_loop: &ActiveEventLoop, event: muda::MenuEvent) {
-        if event.id == OPEN_ID {
+        let id = event.id.as_ref();
+        if id == OPEN_ID {
             self.choose_file();
+            return;
+        }
+        if let Some(size) = open_file::picture_size(id) {
+            self.apply_picture(size);
+            return;
+        }
+        if let Some(kind) = open_file::save_kind(id) {
+            self.save_as(kind);
         }
     }
 
@@ -189,6 +198,9 @@ impl App {
             self.choose_file();
             return;
         }
+        if down && self.command_save(code) {
+            return;
+        }
         if down && self.select_look(code) {
             return;
         }
@@ -239,18 +251,56 @@ impl App {
         }
     }
 
+    fn command_save(&mut self, code: KeyCode) -> bool {
+        let Some(kind) = open_file::command_save(self.modifiers.state(), code) else {
+            return false;
+        };
+        self.save_as(kind);
+        true
+    }
+
+    fn apply_picture(&mut self, size: PictureSize) {
+        self.percent = size.percent();
+        self.applying = true;
+        let (width, height) = picture_window(size.percent());
+        self.request_inner(width, height);
+    }
+
+    fn request_inner(&self, width: u32, height: u32) {
+        let Some(window) = &self.window else {
+            return;
+        };
+        let size = LogicalSize::new(f64::from(width), f64::from(height));
+        let _ = window.request_inner_size(size);
+    }
+
+    fn save_as(&mut self, kind: SaveKind) {
+        if self.picking {
+            return;
+        }
+        match prepared_save(&self.presenter, kind) {
+            Ok(Some(bytes)) => self.ask_and_write(kind, &bytes),
+            Ok(None) => eprintln!("scanline: no recording to save"),
+            Err(error) => eprintln!("scanline: {error}"),
+        }
+    }
+
+    fn ask_and_write(&mut self, kind: SaveKind, bytes: &[u8]) {
+        self.picking = true;
+        let path = open_file::pick_save(self.window.as_deref(), kind);
+        self.picking = false;
+        let Some(path) = path else {
+            return;
+        };
+        let named = open_file::ensure_extension(&path.to_string_lossy(), kind.extension());
+        write_bytes(&named, bytes);
+    }
+
     fn scale_key(&mut self, code: KeyCode) -> bool {
         let Some(percent) = percent_from(code) else {
             return false;
         };
-        self.percent = Some(percent);
-        self.applying = true;
-        let (width, height) = presented_size(CONTENT_WIDTH, CONTENT_HEIGHT, BORDER);
-        let (picture_w, picture_h) = percent_size(u32::from(width), u32::from(height), percent);
-        if let Some(window) = &self.window {
-            let size = LogicalSize::new(f64::from(picture_w), f64::from(picture_h));
-            let _ = window.request_inner_size(size);
-        }
+        self.apply_picture(PictureSize::Percent(percent));
         true
     }
 
@@ -345,6 +395,25 @@ fn window_attrs(presenter: &Presenter) -> winit::window::WindowAttributes {
     winit::window::Window::default_attributes()
         .with_title(presenter.look().title())
         .with_inner_size(LogicalSize::new(960.0, 720.0))
+}
+
+fn picture_window(percent: Option<u32>) -> (u32, u32) {
+    let Some(percent) = percent else {
+        return (960, 720);
+    };
+    let (width, height) = presented_size(CONTENT_WIDTH, CONTENT_HEIGHT, BORDER);
+    percent_size(u32::from(width), u32::from(height), percent)
+}
+
+fn prepared_save(
+    presenter: &scanline_core::Presenter,
+    kind: SaveKind,
+) -> Result<Option<Vec<u8>>, scanline_core::CoreError> {
+    match kind {
+        SaveKind::Sna => presenter.snapshot().map(Some),
+        SaveKind::Tap => Ok(presenter.tap_bytes()),
+        SaveKind::Tzx => Ok(presenter.tzx_bytes()),
+    }
 }
 
 fn hold_key_target(app: &mut App, code: KeyCode, down: bool) {
