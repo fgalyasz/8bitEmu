@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.1 — 2026-10-04
+
+- The machine keeps Spectrum speed on a faster display. The 128K chip plays at its real pitch. A normal load is heard from the tape, and turbo stays silent.
+
 ## 0.8.0 — 2026-10-04
 
 - `./scripts/build-release.sh` writes a release executable for the host: macOS, Linux, or Windows.

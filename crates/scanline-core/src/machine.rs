@@ -129,6 +129,13 @@ impl Machine {
         self.ear_live && self.player.as_ref().is_some_and(Player::playing)
     }
 
+    fn ear_level(&self) -> f32 {
+        if !self.loading_sound || !self.loader_active() {
+            return 0.0;
+        }
+        if self.ports.ear_high { 0.3 } else { -0.3 }
+    }
+
     pub fn has_tape(&self) -> bool {
         self.player.is_some()
     }
@@ -285,7 +292,7 @@ impl Machine {
         let beeper = if self.ports.speaker == 0 { -0.2 } else { 0.2 };
         let tone = self.ports.ay.sample();
         self.ports.ay.tick(cycles / 2);
-        let mixed = (beeper + tone).clamp(-1.0, 1.0);
+        let mixed = (beeper + self.ear_level() + tone).clamp(-1.0, 1.0);
         self.audio_acc += cycles.saturating_mul(SAMPLE_RATE);
         let count = self.audio_acc / CPU_CLOCK;
         self.audio_acc %= CPU_CLOCK;

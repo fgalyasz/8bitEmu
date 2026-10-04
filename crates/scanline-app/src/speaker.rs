@@ -60,10 +60,11 @@ fn build_f32(
     config: &StreamConfig,
     queue: Arc<Mutex<VecDeque<f32>>>,
 ) -> Option<Stream> {
+    let channels = channel_count(config);
     device
         .build_output_stream(
             config,
-            move |data: &mut [f32], _| fill_f32(data, &queue),
+            move |data: &mut [f32], _| fill_f32(data, &queue, channels),
             report_error,
             None,
         )
@@ -75,29 +76,44 @@ fn build_i16(
     config: &StreamConfig,
     queue: Arc<Mutex<VecDeque<f32>>>,
 ) -> Option<Stream> {
+    let channels = channel_count(config);
     device
         .build_output_stream(
             config,
-            move |data: &mut [i16], _| fill_i16(data, &queue),
+            move |data: &mut [i16], _| fill_i16(data, &queue, channels),
             report_error,
             None,
         )
         .ok()
 }
 
-fn fill_f32(data: &mut [f32], queue: &Mutex<VecDeque<f32>>) {
+fn fill_f32(data: &mut [f32], queue: &Mutex<VecDeque<f32>>, channels: usize) {
     let Ok(mut queue) = queue.lock() else {
         silence(data);
         return;
     };
+    spread(data, &mut queue, channels);
+}
+
+pub fn spread(data: &mut [f32], queue: &mut VecDeque<f32>, channels: usize) {
+    let width = channels.max(1);
     let mut index = 0;
     while index < data.len() {
-        data[index] = pop(&mut queue);
-        index += 1;
+        let sample = pop(queue);
+        let mut channel = 0;
+        while channel < width && index < data.len() {
+            data[index] = sample;
+            index += 1;
+            channel += 1;
+        }
     }
 }
 
-fn fill_i16(data: &mut [i16], queue: &Mutex<VecDeque<f32>>) {
+fn channel_count(config: &StreamConfig) -> usize {
+    usize::from(config.channels).max(1)
+}
+
+fn fill_i16(data: &mut [i16], queue: &Mutex<VecDeque<f32>>, channels: usize) {
     let Ok(mut queue) = queue.lock() else {
         let mut index = 0;
         while index < data.len() {
@@ -106,10 +122,16 @@ fn fill_i16(data: &mut [i16], queue: &Mutex<VecDeque<f32>>) {
         }
         return;
     };
+    let width = channels.max(1);
     let mut index = 0;
     while index < data.len() {
-        data[index] = (pop(&mut queue) * 32767.0) as i16;
-        index += 1;
+        let sample = (pop(&mut queue) * 32767.0) as i16;
+        let mut channel = 0;
+        while channel < width && index < data.len() {
+            data[index] = sample;
+            index += 1;
+            channel += 1;
+        }
     }
 }
 

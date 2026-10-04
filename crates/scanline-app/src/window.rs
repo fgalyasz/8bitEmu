@@ -2,12 +2,14 @@ use crate::gpu::{GpuError, Present};
 use crate::keys::{kempston_bit, spectrum_key};
 use crate::launch::Session;
 use crate::open_file::{self, MenuBar, OpenKind, PictureSize, SaveKind, OPEN_ID};
+use crate::pace::{due_ticks, CATCH_UP, DISPLAY_FRAME};
 use crate::speaker::Speaker;
 use scanline_core::{
     aspect_fit, percent_size, place_percent, presented_size, BORDER, CONTENT_HEIGHT, CONTENT_WIDTH,
     Frame, Look, PresentPace, Presenter, Viewport,
 };
 use std::sync::Arc;
+use std::time::Instant;
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
 use winit::event::{ElementState, KeyEvent, Modifiers, WindowEvent};
@@ -41,6 +43,8 @@ struct App {
     modifiers: Modifiers,
     menu: Option<MenuBar>,
     picking: bool,
+    next_tick: Instant,
+    picture: Option<Frame>,
 }
 
 struct SurfaceState {
@@ -63,6 +67,8 @@ impl App {
             modifiers: Modifiers::default(),
             menu: None,
             picking: false,
+            next_tick: Instant::now() - DISPLAY_FRAME,
+            picture: None,
         }
     }
 }
@@ -328,7 +334,36 @@ impl App {
     }
 
     fn redraw(&mut self) {
-        let frame = self.next_frame();
+        self.catch_up();
+        let Some(frame) = self.picture.clone() else {
+            return;
+        };
+        let look = self.presenter.look();
+        let message = self.paint_message(&frame, look, self.percent);
+        self.note_message(message);
+    }
+
+    fn catch_up(&mut self) {
+        let now = Instant::now();
+        let late = now.saturating_duration_since(self.next_tick);
+        let ticks = due_ticks(late, DISPLAY_FRAME, CATCH_UP);
+        let mut ran = 0u32;
+        while ran < ticks {
+            self.play_tick();
+            self.next_tick += DISPLAY_FRAME;
+            ran += 1;
+        }
+        if ticks == CATCH_UP {
+            self.next_tick = now;
+        }
+    }
+
+    fn play_tick(&mut self) {
+        let frame = self.presenter.on_display_tick().ok().cloned();
+        let Some(frame) = frame else {
+            return;
+        };
+        self.picture = Some(frame);
         let audio = self.presenter.take_audio();
         if self.presenter.hears_loading() {
             self.speaker.push(&audio);
@@ -336,12 +371,6 @@ impl App {
         if let Some(bytes) = self.presenter.take_tap() {
             write_bytes("scanline.tap", &bytes);
         }
-        let Some(frame) = frame else {
-            return;
-        };
-        let look = self.presenter.look();
-        let message = self.paint_message(&frame, look, self.percent);
-        self.note_message(message);
     }
 
     fn paint_message(&mut self, frame: &Frame, look: Look, percent: Option<u32>) -> Option<String> {
@@ -361,9 +390,6 @@ impl App {
         self.noted = Some(message);
     }
 
-    fn next_frame(&mut self) -> Option<Frame> {
-        self.presenter.on_display_tick().ok().cloned()
-    }
 }
 
 impl SurfaceState {

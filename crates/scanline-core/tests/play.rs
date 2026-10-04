@@ -267,6 +267,26 @@ fn loading_sound_off_budgets_turbo_only_while_loading() {
 }
 
 #[test]
+fn the_loading_beep_follows_the_ear_when_sound_is_on() {
+    let heard = beep_after_start(true);
+    assert!(heard.iter().any(|sample| *sample > 0.0));
+    assert!(heard.iter().any(|sample| *sample < -0.2));
+    let quiet = beep_after_start(false);
+    let first = quiet[0];
+    assert!(quiet.iter().all(|sample| *sample == first));
+}
+
+fn beep_after_start(sound: bool) -> Vec<f32> {
+    let mut machine = polling_rom();
+    machine.set_loading_sound(sound);
+    machine.load_tape(&tap_block(&[0x00, 0x00])).expect("tape");
+    machine.frame().expect("arm");
+    let _ = machine.take_audio();
+    machine.frame().expect("play");
+    machine.take_audio()
+}
+
+#[test]
 fn a_quiet_load_runs_ahead_after_the_prompt() {
     let mut heard = polling_presenter(true);
     let mut quiet = polling_presenter(false);

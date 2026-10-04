@@ -68,7 +68,7 @@ impl Ay {
     }
 
     fn tick_noise(&mut self, clocks: u32) {
-        let period = u32::from((self.regs[6] & 0x1F).max(1));
+        let period = u32::from((self.regs[6] & 0x1F).max(1)).saturating_mul(16);
         self.noise_at += clocks;
         let flips = self.noise_at / period;
         self.noise_at %= period;
@@ -117,10 +117,58 @@ fn masked(index: usize, value: u8) -> u8 {
 
 fn period_of(low: u8, high: u8) -> u32 {
     let period = (u32::from(high & 0x0F) << 8) | u32::from(low);
-    period.max(1)
+    period.max(1).saturating_mul(16)
 }
 
 fn envelope_period(low: u8, high: u8) -> u32 {
     let period = (u32::from(high) << 8) | u32::from(low);
-    period.max(1)
+    period.max(1).saturating_mul(256)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Ay;
+
+    #[test]
+    fn tone_and_noise_count_sixteen_clocks() {
+        let mut tone = chip();
+        write(&mut tone, 0, 4);
+        write(&mut tone, 7, 0x3E);
+        write(&mut tone, 8, 0x0F);
+        tone.tick(63);
+        assert_eq!(tone.sample(), 0.0);
+        tone.tick(1);
+        assert!(tone.sample() > 0.3);
+        let mut noise = chip();
+        write(&mut noise, 6, 1);
+        write(&mut noise, 7, 0x07);
+        write(&mut noise, 8, 0x0F);
+        noise.tick(15);
+        assert_eq!(noise.sample(), 0.0);
+        noise.tick(1);
+        assert!(noise.sample() > 0.0);
+    }
+
+    #[test]
+    fn the_envelope_counts_two_hundred_fifty_six_clocks() {
+        let mut ay = chip();
+        write(&mut ay, 0, 1);
+        write(&mut ay, 7, 0x3E);
+        write(&mut ay, 8, 0x10);
+        write(&mut ay, 11, 1);
+        ay.tick(16);
+        assert_eq!(ay.sample(), 0.0);
+        write(&mut ay, 0, 255);
+        ay.tick(240);
+        assert!(ay.sample() > 0.0);
+    }
+
+    fn chip() -> Ay {
+        Ay::default()
+    }
+
+    fn write(ay: &mut Ay, register: u8, value: u8) {
+        ay.select(register);
+        ay.write(value);
+    }
 }
