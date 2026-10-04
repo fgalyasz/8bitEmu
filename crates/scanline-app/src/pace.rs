@@ -2,6 +2,7 @@ use std::time::Duration;
 
 pub const DISPLAY_FRAME: Duration = Duration::from_nanos(1_000_000_000 / 60);
 pub const CATCH_UP: u32 = 4;
+pub const TURBO_SLICE: Duration = Duration::from_millis(12);
 
 pub fn due_ticks(late: Duration, frame: Duration, cap: u32) -> u32 {
     if frame.is_zero() {

@@ -262,7 +262,7 @@ fn loading_sound_off_budgets_turbo_only_while_loading() {
     assert_eq!(polling.turbo_budget(), 0);
     assert!(polling.hears_loading());
     polling.set_loading_sound(false);
-    assert_eq!(polling.turbo_budget(), 32);
+    assert_eq!(polling.turbo_budget(), 1);
     assert!(!polling.hears_loading());
 }
 
@@ -297,9 +297,13 @@ fn a_quiet_load_runs_ahead_after_the_prompt() {
         tick += 1;
     }
     assert_eq!(heard.tape_edge(), quiet.tape_edge());
+    assert!(quiet.rush().expect("rush").is_none());
     heard.on_display_tick().expect("step");
-    quiet.on_display_tick().expect("warp");
+    quiet.on_display_tick().expect("step");
+    assert_eq!(heard.tape_edge(), quiet.tape_edge());
+    assert!(quiet.rush().expect("ahead").is_some());
     assert!(quiet.tape_edge() > heard.tape_edge());
+    assert!(heard.rush().expect("heard").is_none());
 }
 
 fn polling_presenter(sound: bool) -> Presenter {

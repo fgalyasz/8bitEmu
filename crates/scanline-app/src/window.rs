@@ -2,7 +2,7 @@ use crate::gpu::{GpuError, Present};
 use crate::keys::{kempston_bit, spectrum_key};
 use crate::launch::Session;
 use crate::open_file::{self, MenuBar, OpenKind, PictureSize, SaveKind, OPEN_ID};
-use crate::pace::{due_ticks, CATCH_UP, DISPLAY_FRAME};
+use crate::pace::{due_ticks, CATCH_UP, DISPLAY_FRAME, TURBO_SLICE};
 use crate::speaker::Speaker;
 use scanline_core::{
     aspect_fit, percent_size, place_percent, presented_size, BORDER, CONTENT_HEIGHT, CONTENT_WIDTH,
@@ -370,6 +370,17 @@ impl App {
         }
         if let Some(bytes) = self.presenter.take_tap() {
             write_bytes("scanline.tap", &bytes);
+        }
+        self.rush_load();
+    }
+
+    fn rush_load(&mut self) {
+        let start = Instant::now();
+        while start.elapsed() < TURBO_SLICE {
+            let Ok(Some(frame)) = self.presenter.rush() else {
+                return;
+            };
+            self.picture = Some(frame);
         }
     }
 

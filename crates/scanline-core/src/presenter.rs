@@ -122,21 +122,16 @@ impl Presenter {
     pub fn on_display_tick(&mut self) -> Result<&Frame, CoreError> {
         let source = source_index(self.display_tick, self.pace);
         self.ensure_source(source)?;
-        self.warp_load()?;
         self.display_tick += 1;
         self.frame_ref()
     }
 
-    fn warp_load(&mut self) -> Result<(), CoreError> {
-        if self.prompt_at.is_some() {
-            return Ok(());
+    pub fn rush(&mut self) -> Result<Option<Frame>, CoreError> {
+        if self.prompt_at.is_some() || self.machine.turbo_budget() == 0 {
+            return Ok(None);
         }
-        let mut left = self.machine.turbo_budget();
-        while left > 0 && self.machine.turbo_budget() > 0 {
-            self.store_warp_frame()?;
-            left -= 1;
-        }
-        Ok(())
+        self.store_warp_frame()?;
+        Ok(self.frame.clone())
     }
 
     fn store_warp_frame(&mut self) -> Result<(), CoreError> {

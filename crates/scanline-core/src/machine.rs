@@ -8,7 +8,7 @@ use crate::tape::{self, Player, Recorder};
 use crate::z80::{self, Cpu, Ports};
 
 const STEP_LIMIT: u32 = 100_000;
-const TURBO_FRAMES: u32 = 32;
+const TURBO_STEP: u32 = 1;
 const FRAME_CYCLES: u32 = 69_888;
 const LINE_CYCLES: u32 = 224;
 const FIRST_VISIBLE_LINE: u32 = 48;
@@ -118,7 +118,7 @@ impl Machine {
         if self.loading_sound || !self.loader_active() {
             return 0;
         }
-        TURBO_FRAMES
+        TURBO_STEP
     }
 
     pub fn hears_loading(&self) -> bool {

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.2 — 2026-10-04
+
+- Turbo load draws every refresh. The clock runs ahead for a short slice of each refresh instead of jumping to a single later frame.
+
 ## 0.8.1 — 2026-10-04
 
 - The machine keeps Spectrum speed on a faster display. The 128K chip plays at its real pitch. A normal load is heard from the tape, and turbo stays silent.
