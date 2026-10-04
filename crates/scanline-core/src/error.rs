@@ -40,6 +40,10 @@ pub enum CoreError {
     },
     SampleRate,
     EmptyFrame,
+    Opcode {
+        opcode: u8,
+    },
+    StepLimit,
 }
 
 impl fmt::Display for CoreError {
@@ -56,6 +60,8 @@ impl CoreError {
             CoreError::SampleRate => rate_text(),
             CoreError::EmptyFrame => frame_text(),
             CoreError::IndexRange { index } => index_text(*index),
+            CoreError::Opcode { opcode } => opcode_text(*opcode),
+            CoreError::StepLimit => limit_text(),
             other => other.length_text(),
         }
     }
@@ -110,6 +116,14 @@ fn frame_text() -> String {
 
 fn index_text(index: u8) -> String {
     format!("palette index {index} is above 15")
+}
+
+fn opcode_text(opcode: u8) -> String {
+    format!("unimplemented opcode {opcode:#04x}")
+}
+
+fn limit_text() -> String {
+    "z80 exceeded the frame step limit".to_string()
 }
 
 fn len_text(name: &str, expected: usize, actual: usize) -> String {

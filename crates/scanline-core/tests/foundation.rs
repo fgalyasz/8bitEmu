@@ -281,11 +281,12 @@ fn demo_pattern_moves_the_sprite_and_keeps_the_border_stripe() {
 #[test]
 fn presenter_holds_the_source_frame_across_the_repeated_refresh() {
     let mut presenter = Presenter::new(PresentPace::Fixed60Hz);
-    let first = sprite_column(presenter.on_display_tick().unwrap());
-    let repeated = sprite_column(presenter.on_display_tick().unwrap());
-    let advanced = sprite_column(presenter.on_display_tick().unwrap());
+    let first = cycling_ink(presenter.on_display_tick().unwrap());
+    let repeated = cycling_ink(presenter.on_display_tick().unwrap());
+    let advanced = cycling_ink(presenter.on_display_tick().unwrap());
+    assert_eq!(first, 1);
     assert_eq!(first, repeated);
-    assert_ne!(repeated, advanced);
+    assert_eq!(advanced, 2);
     presenter.set_look(Look::SoftEdge);
     assert_eq!(presenter.look(), Look::SoftEdge);
 }
@@ -511,6 +512,12 @@ fn cadence_prefix(pace: PresentPace) -> Vec<u64> {
         tick += 1;
     }
     got
+}
+
+fn cycling_ink(frame: &scanline_core::Frame) -> u8 {
+    let x = usize::from(BORDER);
+    let y = usize::from(BORDER);
+    frame.index[y * usize::from(frame.width) + x]
 }
 
 fn sprite_column(frame: &scanline_core::Frame) -> usize {

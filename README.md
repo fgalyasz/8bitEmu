@@ -1,6 +1,6 @@
 # Scanline
 
-Cross-platform Spectrum and C64 player. This increment is the present pipe: a ROM-free test pattern, integer scaling, and three looks.
+Cross-platform Spectrum and C64 player. The window runs a small Z80 program in 48K RAM. It draws three bright lines through the Spectrum display file and cycles the first cell. There is no ROM. Integer scaling and the three looks stay.
 
 ```
 cargo test

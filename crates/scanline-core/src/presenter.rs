@@ -1,8 +1,8 @@
 use crate::cadence::{PresentPace, source_index};
-use crate::demo::demo_frame;
 use crate::error::CoreError;
 use crate::frame::Frame;
 use crate::look::Look;
+use crate::machine::Machine;
 use crate::temporal::{Blend, TemporalHistory};
 
 pub struct Presenter {
@@ -12,6 +12,7 @@ pub struct Presenter {
     shown: Option<u64>,
     history: TemporalHistory,
     frame: Option<Frame>,
+    machine: Machine,
 }
 
 impl Presenter {
@@ -23,6 +24,7 @@ impl Presenter {
             shown: None,
             history: TemporalHistory::default(),
             frame: None,
+            machine: Machine::new(),
         }
     }
 
@@ -49,7 +51,7 @@ impl Presenter {
     }
 
     fn store_source(&mut self, source: u64) -> Result<(), CoreError> {
-        let mut frame = demo_frame(source);
+        let mut frame = self.machine.frame()?;
         apply_history(&mut frame, &mut self.history)?;
         self.shown = Some(source);
         self.frame = Some(frame);
