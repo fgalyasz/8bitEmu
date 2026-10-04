@@ -44,6 +44,10 @@ pub enum CoreError {
         opcode: u8,
     },
     StepLimit,
+    ImageLength {
+        name: &'static str,
+        actual: usize,
+    },
 }
 
 impl fmt::Display for CoreError {
@@ -62,6 +66,7 @@ impl CoreError {
             CoreError::IndexRange { index } => index_text(*index),
             CoreError::Opcode { opcode } => opcode_text(*opcode),
             CoreError::StepLimit => limit_text(),
+            CoreError::ImageLength { name, actual } => image_text(name, *actual),
             other => other.length_text(),
         }
     }
@@ -124,6 +129,10 @@ fn opcode_text(opcode: u8) -> String {
 
 fn limit_text() -> String {
     "z80 exceeded the frame step limit".to_string()
+}
+
+fn image_text(name: &str, actual: usize) -> String {
+    format!("{name} length {actual} is not a supported image")
 }
 
 fn len_text(name: &str, expected: usize, actual: usize) -> String {

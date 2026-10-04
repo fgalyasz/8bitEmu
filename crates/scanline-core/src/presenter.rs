@@ -36,6 +36,27 @@ impl Presenter {
         self.look = look;
     }
 
+    pub fn load_rom(&mut self, bytes: &[u8], model_128: bool) -> Result<(), CoreError> {
+        self.machine.load_rom(bytes, model_128)
+    }
+
+    pub fn load_sna(&mut self, bytes: &[u8]) -> Result<(), CoreError> {
+        self.machine.load_sna(bytes)
+    }
+
+    pub fn set_key(&mut self, row: u8, mask: u8, down: bool) {
+        self.machine.set_key(row, mask, down);
+    }
+
+    pub fn reset(&mut self) {
+        self.machine.reset();
+        self.shown = None;
+    }
+
+    pub fn take_audio(&mut self) -> Vec<f32> {
+        self.machine.take_audio()
+    }
+
     pub fn on_display_tick(&mut self) -> Result<&Frame, CoreError> {
         let source = source_index(self.display_tick, self.pace);
         self.ensure_source(source)?;

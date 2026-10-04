@@ -1,4 +1,7 @@
 use crate::gpu::{GpuError, Present, fit_scale};
+use crate::keys::spectrum_key;
+use crate::launch::Session;
+use crate::speaker::Speaker;
 use scanline_core::{Frame, Look, PresentPace, Presenter};
 use std::sync::Arc;
 use winit::application::ApplicationHandler;
@@ -8,9 +11,10 @@ use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::{Window, WindowId};
 
-pub fn run() -> Result<(), GpuError> {
+pub fn run(session: Session) -> Result<(), GpuError> {
+    let presenter = presenter_from(session)?;
     let event_loop = EventLoop::new().map_err(show_error)?;
-    let mut app = App::new();
+    let mut app = App::new(presenter);
     event_loop.run_app(&mut app).map_err(show_error)
 }
 
@@ -18,6 +22,8 @@ struct App {
     window: Option<Arc<Window>>,
     state: Option<SurfaceState>,
     presenter: Presenter,
+    speaker: Speaker,
+    noted: Option<String>,
 }
 
 struct SurfaceState {
@@ -27,11 +33,13 @@ struct SurfaceState {
 }
 
 impl App {
-    fn new() -> Self {
+    fn new(presenter: Presenter) -> Self {
         Self {
             window: None,
             state: None,
-            presenter: Presenter::new(PresentPace::Fixed60Hz),
+            presenter,
+            speaker: Speaker::open(),
+            noted: None,
         }
     }
 }
@@ -72,25 +80,34 @@ impl App {
     }
 
     fn key(&mut self, event_loop: &ActiveEventLoop, event: KeyEvent) {
-        if event.state != ElementState::Pressed {
+        if event.repeat {
             return;
         }
-        if event.physical_key == PhysicalKey::Code(KeyCode::Escape) {
+        let PhysicalKey::Code(code) = event.physical_key else {
+            return;
+        };
+        let down = event.state == ElementState::Pressed;
+        if down && code == KeyCode::Escape {
             event_loop.exit();
             return;
         }
-        self.select_look(event.physical_key);
+        if down && self.select_look(code) {
+            return;
+        }
+        if down && code == KeyCode::F12 {
+            self.presenter.reset();
+            return;
+        }
+        hold_key_target(self, code, down);
     }
 
-    fn select_look(&mut self, key: PhysicalKey) {
-        let PhysicalKey::Code(code) = key else {
-            return;
-        };
+    fn select_look(&mut self, code: KeyCode) -> bool {
         let Some(look) = look_from_code(code) else {
-            return;
+            return false;
         };
         self.presenter.set_look(look);
         self.retitle();
+        true
     }
 
     fn retitle(&self) {
@@ -106,15 +123,31 @@ impl App {
     }
 
     fn redraw(&mut self) {
-        let Some(frame) = self.next_frame() else {
+        let frame = self.next_frame();
+        self.speaker.push(&self.presenter.take_audio());
+        let Some(frame) = frame else {
             return;
         };
         let look = self.presenter.look();
-        if let Some(state) = &mut self.state {
-            if let Err(error) = state.paint(&frame, look) {
-                eprintln!("scanline: {error}");
-            }
+        let message = self.paint_message(&frame, look);
+        self.note_message(message);
+    }
+
+    fn paint_message(&mut self, frame: &Frame, look: Look) -> Option<String> {
+        let state = self.state.as_mut()?;
+        state.paint(frame, look).err().map(|error| error.to_string())
+    }
+
+    fn note_message(&mut self, message: Option<String>) {
+        let Some(message) = message else {
+            self.noted = None;
+            return;
+        };
+        if self.noted.as_deref() == Some(message.as_str()) {
+            return;
         }
+        eprintln!("scanline: {message}");
+        self.noted = Some(message);
     }
 
     fn next_frame(&mut self) -> Option<Frame> {
@@ -179,13 +212,33 @@ fn window_attrs(presenter: &Presenter) -> winit::window::WindowAttributes {
         .with_inner_size(LogicalSize::new(960.0, 720.0))
 }
 
+fn hold_key_target(app: &mut App, code: KeyCode, down: bool) {
+    let Some((row, mask)) = spectrum_key(code) else {
+        return;
+    };
+    app.presenter.set_key(row, mask, down);
+}
+
 fn look_from_code(code: KeyCode) -> Option<Look> {
     match code {
-        KeyCode::Digit1 => Look::from_digit(1),
-        KeyCode::Digit2 => Look::from_digit(2),
-        KeyCode::Digit3 => Look::from_digit(3),
+        KeyCode::F1 => Look::from_digit(1),
+        KeyCode::F2 => Look::from_digit(2),
+        KeyCode::F3 => Look::from_digit(3),
         _ => None,
     }
+}
+
+fn presenter_from(session: Session) -> Result<Presenter, GpuError> {
+    let mut presenter = Presenter::new(PresentPace::Fixed60Hz);
+    if let Some(rom) = session.rom {
+        presenter
+            .load_rom(&rom, session.model_128)
+            .map_err(show_error)?;
+    }
+    if let Some(sna) = session.sna {
+        presenter.load_sna(&sna).map_err(show_error)?;
+    }
+    Ok(presenter)
 }
 
 fn surface_config(width: u32, height: u32) -> wgpu::SurfaceConfiguration {

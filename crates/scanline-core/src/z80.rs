@@ -1,6 +1,13 @@
 use crate::error::CoreError;
 use crate::memory::Memory;
 
+mod ay;
+mod bits;
+mod extended;
+mod flow;
+mod index;
+mod io;
+
 const SIGN: u8 = 0x80;
 const ZERO: u8 = 0x40;
 const HALF: u8 = 0x10;
@@ -20,18 +27,55 @@ pub struct Cpu {
     pub e: u8,
     pub h: u8,
     pub l: u8,
+    pub a2: u8,
+    pub f2: u8,
+    pub b2: u8,
+    pub c2: u8,
+    pub d2: u8,
+    pub e2: u8,
+    pub h2: u8,
+    pub l2: u8,
+    pub ix: u16,
+    pub iy: u16,
+    pub i: u8,
+    pub r: u8,
+    pub im: u8,
+    pub iff1: bool,
+    pub iff2: bool,
     pub halted: bool,
+    pub arm_ei: bool,
+    pub branched: bool,
+    pub index_mode: u8,
+    pub index_addr: u16,
 }
 
 #[derive(Default)]
 pub struct Ports {
     pub border: u8,
+    pub speaker: u8,
+    pub pressed: [u8; 8],
+    pub model_128: bool,
+    pub locked: bool,
+    pub(crate) ay: ay::Ay,
 }
 
-pub fn step(cpu: &mut Cpu, memory: &mut Memory, ports: &mut Ports) -> Result<(), CoreError> {
-    let opcode = memory.read(cpu.pc);
-    cpu.pc = cpu.pc.wrapping_add(1);
-    execute(cpu, memory, ports, opcode)
+pub fn step(cpu: &mut Cpu, memory: &mut Memory, ports: &mut Ports) -> Result<u32, CoreError> {
+    cpu.branched = true;
+    cpu.index_mode = 0;
+    let opcode = fetch_m1(cpu, memory);
+    dispatch(cpu, memory, ports, opcode)
+}
+
+pub fn accept_interrupt(cpu: &mut Cpu, memory: &mut Memory) -> u32 {
+    if cpu.halted {
+        cpu.halted = false;
+        cpu.pc = cpu.pc.wrapping_add(1);
+    }
+    cpu.iff1 = false;
+    cpu.iff2 = false;
+    push(cpu, memory, cpu.pc);
+    cpu.pc = interrupt_target(cpu, memory);
+    13
 }
 
 fn execute(
@@ -40,10 +84,35 @@ fn execute(
     ports: &mut Ports,
     opcode: u8,
 ) -> Result<(), CoreError> {
-    if run_fixed(cpu, memory, ports, opcode) || run_pattern(cpu, memory, opcode) {
+    if run_fixed(cpu, memory, ports, opcode)
+        || run_pattern(cpu, memory, opcode)
+        || flow::run(cpu, memory, opcode)
+    {
         return Ok(());
     }
     Err(CoreError::Opcode { opcode })
+}
+
+fn dispatch(
+    cpu: &mut Cpu,
+    memory: &mut Memory,
+    ports: &mut Ports,
+    opcode: u8,
+) -> Result<u32, CoreError> {
+    if opcode == 0xCB {
+        return Ok(bits::run(cpu, memory));
+    }
+    if opcode == 0xED {
+        return Ok(extended::run(cpu, memory, ports));
+    }
+    if opcode == 0xDD {
+        return index::run(cpu, memory, ports, true);
+    }
+    if opcode == 0xFD {
+        return index::run(cpu, memory, ports, false);
+    }
+    execute(cpu, memory, ports, opcode)?;
+    Ok(unprefixed_cycles(opcode, cpu.branched))
 }
 
 fn run_fixed(cpu: &mut Cpu, memory: &mut Memory, ports: &mut Ports, opcode: u8) -> bool {
@@ -72,7 +141,7 @@ fn run_flow(cpu: &mut Cpu, memory: &mut Memory, ports: &mut Ports, opcode: u8) -
         0x76 => halt(cpu),
         0xC3 => jump_absolute(cpu, memory, true),
         0xD3 => out_port(cpu, memory, ports),
-        0xDB => in_port(cpu, memory),
+        0xDB => in_port(cpu, memory, ports),
         0xF9 => load_sp(cpu),
         _ => false,
     }
@@ -181,6 +250,14 @@ fn load_absolute(cpu: &mut Cpu, memory: &Memory) {
 }
 
 fn exchange_de_hl(cpu: &mut Cpu) {
+    if cpu.index_mode == 1 || cpu.index_mode == 2 {
+        let de = pair(cpu.d, cpu.e);
+        let indexed = read_pair(cpu, 2);
+        write_pair(cpu, 2, de);
+        cpu.d = (indexed >> 8) as u8;
+        cpu.e = indexed as u8;
+        return;
+    }
     let d = cpu.d;
     let e = cpu.e;
     cpu.d = cpu.h;
@@ -202,23 +279,21 @@ fn halt(cpu: &mut Cpu) -> bool {
 }
 
 fn load_sp(cpu: &mut Cpu) -> bool {
-    cpu.sp = pair(cpu.h, cpu.l);
+    cpu.sp = read_pair(cpu, 2);
     true
 }
 
-fn out_port(cpu: &mut Cpu, memory: &Memory, ports: &mut Ports) -> bool {
-    let port = memory.read(cpu.pc);
-    cpu.pc = cpu.pc.wrapping_add(1);
-    if port == 0xFE {
-        ports.border = cpu.a & 7;
-    }
+fn out_port(cpu: &mut Cpu, memory: &mut Memory, ports: &mut Ports) -> bool {
+    let low = fetch_byte(cpu, memory);
+    let full = (u16::from(cpu.a) << 8) | u16::from(low);
+    ports.output(memory, full, cpu.a);
     true
 }
 
-fn in_port(cpu: &mut Cpu, memory: &Memory) -> bool {
-    let _port = memory.read(cpu.pc);
-    cpu.pc = cpu.pc.wrapping_add(1);
-    cpu.a = 0xFF;
+fn in_port(cpu: &mut Cpu, memory: &mut Memory, ports: &Ports) -> bool {
+    let low = fetch_byte(cpu, memory);
+    let full = (u16::from(cpu.a) << 8) | u16::from(low);
+    cpu.a = ports.input(full);
     true
 }
 
@@ -276,6 +351,7 @@ fn alu_immediate(cpu: &mut Cpu, memory: &Memory, op: u8) {
 fn jump_relative(cpu: &mut Cpu, memory: &Memory, take: bool) -> bool {
     let offset = memory.read(cpu.pc) as i8;
     cpu.pc = cpu.pc.wrapping_add(1);
+    cpu.branched = take;
     if take {
         cpu.pc = cpu.pc.wrapping_add(offset as u16);
     }
@@ -285,6 +361,7 @@ fn jump_relative(cpu: &mut Cpu, memory: &Memory, take: bool) -> bool {
 fn jump_absolute(cpu: &mut Cpu, memory: &Memory, take: bool) -> bool {
     let target = peek_word(memory, cpu.pc);
     cpu.pc = cpu.pc.wrapping_add(2);
+    cpu.branched = take;
     if take {
         cpu.pc = target;
     }
@@ -305,7 +382,7 @@ fn read_pair(cpu: &Cpu, index: u8) -> u16 {
     match index & 3 {
         0 => pair(cpu.b, cpu.c),
         1 => pair(cpu.d, cpu.e),
-        2 => pair(cpu.h, cpu.l),
+        2 => indexed_hl(cpu),
         _ => cpu.sp,
     }
 }
@@ -332,13 +409,23 @@ fn set_de(cpu: &mut Cpu, high: u8, low: u8) {
 }
 
 fn set_hl(cpu: &mut Cpu, high: u8, low: u8) {
-    cpu.h = high;
-    cpu.l = low;
+    let value = pair(high, low);
+    match cpu.index_mode {
+        1 | 3 => cpu.ix = value,
+        2 | 4 => cpu.iy = value,
+        _ => {
+            cpu.h = high;
+            cpu.l = low;
+        }
+    }
 }
 
 fn read_reg(cpu: &Cpu, memory: &Memory, index: u8) -> u8 {
     if index == 6 {
-        return memory.read(pair(cpu.h, cpu.l));
+        return memory.read(memory_address(cpu));
+    }
+    if half_index(cpu, index) {
+        return index_half(cpu, index);
     }
     named_reg(cpu, index)
 }
@@ -357,7 +444,11 @@ fn named_reg(cpu: &Cpu, index: u8) -> u8 {
 
 fn write_reg(cpu: &mut Cpu, memory: &mut Memory, index: u8, value: u8) {
     if index == 6 {
-        memory.write(pair(cpu.h, cpu.l), value);
+        memory.write(memory_address(cpu), value);
+        return;
+    }
+    if half_index(cpu, index) {
+        write_half(cpu, index, value);
         return;
     }
     write_named(cpu, index, value);
@@ -492,5 +583,156 @@ fn flag_met(flags: u8, code: u8) -> bool {
         5 => (flags & PARITY) != 0,
         6 => (flags & SIGN) == 0,
         _ => (flags & SIGN) != 0,
+    }
+}
+
+fn fetch_m1(cpu: &mut Cpu, memory: &Memory) -> u8 {
+    let opcode = fetch_byte(cpu, memory);
+    bump_r(cpu);
+    opcode
+}
+
+fn fetch_byte(cpu: &mut Cpu, memory: &Memory) -> u8 {
+    let value = memory.read(cpu.pc);
+    cpu.pc = cpu.pc.wrapping_add(1);
+    value
+}
+
+fn bump_r(cpu: &mut Cpu) {
+    let next = cpu.r.wrapping_add(1) & 0x7F;
+    cpu.r = (cpu.r & 0x80) | next;
+}
+
+fn interrupt_target(cpu: &Cpu, memory: &Memory) -> u16 {
+    if cpu.im == 2 {
+        let vector = (u16::from(cpu.i) << 8) | 0xFF;
+        return peek_word(memory, vector);
+    }
+    0x0038
+}
+
+fn push(cpu: &mut Cpu, memory: &mut Memory, value: u16) {
+    cpu.sp = cpu.sp.wrapping_sub(2);
+    write_word(memory, cpu.sp, value);
+}
+
+fn pop(cpu: &mut Cpu, memory: &mut Memory) -> u16 {
+    let value = peek_word(memory, cpu.sp);
+    cpu.sp = cpu.sp.wrapping_add(2);
+    value
+}
+
+fn write_word(memory: &mut Memory, address: u16, value: u16) {
+    memory.write(address, value as u8);
+    memory.write(address.wrapping_add(1), (value >> 8) as u8);
+}
+
+fn indexed_hl(cpu: &Cpu) -> u16 {
+    match cpu.index_mode {
+        1 | 3 => cpu.ix,
+        2 | 4 => cpu.iy,
+        _ => pair(cpu.h, cpu.l),
+    }
+}
+
+fn memory_address(cpu: &Cpu) -> u16 {
+    if cpu.index_mode >= 3 {
+        return cpu.index_addr;
+    }
+    pair(cpu.h, cpu.l)
+}
+
+fn half_index(cpu: &Cpu, index: u8) -> bool {
+    (cpu.index_mode == 1 || cpu.index_mode == 2) && (index == 4 || index == 5)
+}
+
+fn index_half(cpu: &Cpu, index: u8) -> u8 {
+    let value = if cpu.index_mode == 1 { cpu.ix } else { cpu.iy };
+    if index == 4 { (value >> 8) as u8 } else { value as u8 }
+}
+
+fn write_half(cpu: &mut Cpu, index: u8, value: u8) {
+    let current = if cpu.index_mode == 1 { cpu.ix } else { cpu.iy };
+    let next = if index == 4 {
+        (current & 0x00FF) | (u16::from(value) << 8)
+    } else {
+        (current & 0xFF00) | u16::from(value)
+    };
+    if cpu.index_mode == 1 {
+        cpu.ix = next;
+        return;
+    }
+    cpu.iy = next;
+}
+
+fn unprefixed_cycles(opcode: u8, branched: bool) -> u32 {
+    if opcode == 0x10 {
+        return if branched { 13 } else { 8 };
+    }
+    if opcode == 0x18 {
+        return 12;
+    }
+    if opcode & 0xE7 == 0x20 {
+        return if branched { 12 } else { 7 };
+    }
+    if opcode & 0xC7 == 0xC0 {
+        return if branched { 11 } else { 5 };
+    }
+    if opcode & 0xC7 == 0xC4 {
+        return if branched { 17 } else { 10 };
+    }
+    class_cycles(opcode)
+}
+
+fn class_cycles(opcode: u8) -> u32 {
+    if opcode & 0xCF == 0x01 {
+        return 10;
+    }
+    if opcode & 0xCF == 0x03 || opcode & 0xCF == 0x0B || opcode & 0xCF == 0x09 {
+        return if opcode & 0xCF == 0x09 { 11 } else { 6 };
+    }
+    if opcode & 0xC7 == 0x04 || opcode & 0xC7 == 0x05 {
+        return if (opcode >> 3) & 7 == 6 { 11 } else { 4 };
+    }
+    if opcode & 0xC7 == 0x06 {
+        return if (opcode >> 3) & 7 == 6 { 10 } else { 7 };
+    }
+    if let Some(cycles) = block_cycles(opcode) {
+        return cycles;
+    }
+    named_cycles(opcode)
+}
+
+fn block_cycles(opcode: u8) -> Option<u32> {
+    if (0x40..0x80).contains(&opcode) {
+        if opcode == 0x76 {
+            return Some(4);
+        }
+        let memory = opcode & 7 == 6 || (opcode >> 3) & 7 == 6;
+        return Some(if memory { 7 } else { 4 });
+    }
+    if (0x80..0xC0).contains(&opcode) {
+        return Some(if opcode & 7 == 6 { 7 } else { 4 });
+    }
+    if opcode & 0xC7 == 0xC6 || opcode & 0xCF == 0xC5 {
+        return Some(if opcode & 0xC7 == 0xC6 { 7 } else { 11 });
+    }
+    if opcode & 0xCF == 0xC1 || opcode & 0xC7 == 0xC7 || opcode & 0xC7 == 0xC2 || opcode == 0xC3 {
+        return Some(if opcode & 0xC7 == 0xC7 { 11 } else { 10 });
+    }
+    None
+}
+
+fn named_cycles(opcode: u8) -> u32 {
+    match opcode {
+        0x02 | 0x12 | 0x0A | 0x1A => 7,
+        0x22 | 0x2A => 16,
+        0x32 | 0x3A => 13,
+        0xCD => 17,
+        0xC9 => 10,
+        0xD3 | 0xDB => 11,
+        0xE3 => 19,
+        0xF9 => 6,
+        _ => 4,
     }
 }

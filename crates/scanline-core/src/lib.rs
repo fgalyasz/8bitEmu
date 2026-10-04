@@ -11,6 +11,7 @@ mod mailbox;
 mod memory;
 mod presenter;
 mod program;
+mod sna;
 mod scale;
 mod shade;
 mod temporal;

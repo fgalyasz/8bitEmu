@@ -59,14 +59,17 @@ fn machine_draws_lines_and_advances_the_first_cell() {
 }
 
 #[test]
-fn unknown_opcode_and_runaway_loop_name_the_cause() {
+fn bit_rotate_and_a_runaway_loop_name_the_cause() {
     let mut memory = Memory::new();
     memory.write(0x8000, 0xCB);
+    memory.write(0x8001, 0x00);
     let mut cpu = Cpu::default();
+    cpu.b = 0x80;
     cpu.pc = 0x8000;
-    let error = step(&mut cpu, &mut memory, &mut Ports::default()).expect_err("opcode");
-    assert!(error.to_string().contains("0xcb"));
-    assert_eq!(error, CoreError::Opcode { opcode: 0xCB });
+    step(&mut cpu, &mut memory, &mut Ports::default()).expect("rlc");
+    assert_eq!(cpu.b, 0x01);
+    assert_eq!(cpu.f & 1, 1);
+    assert!(CoreError::Opcode { opcode: 0xCB }.to_string().contains("0xcb"));
     memory.write(0x8000, 0x18);
     memory.write(0x8001, 0xFE);
     cpu.pc = 0x8000;
@@ -202,6 +205,54 @@ fn jumps_follow_flags_and_djnz_counts() {
     assert_eq!(jump_target(0xF2, 0x80), 0x8003);
     assert_eq!(jump_target(0xFA, 0x80), 0x9000);
     assert_eq!(jump_target(0xFA, 0x00), 0x8003);
+}
+
+#[test]
+fn documented_prefixes_cover_daa_blocks_and_index() {
+    let (cpu, _, _) = execute(&[0x3E, 0x15, 0xC6, 0x27, 0x27, 0x76]);
+    assert_eq!(cpu.a, 0x42);
+    assert_eq!(cpu.f & 1, 0);
+    let (cpu, _, _) = execute(&[0x3E, 0x90, 0xC6, 0x90, 0x27, 0x76]);
+    assert_eq!(cpu.a, 0x80);
+    assert_eq!(cpu.f & 1, 1);
+    let (cpu, _, _) = execute(&[0x3E, 0x10, 0xD6, 0x01, 0x27, 0x76]);
+    assert_eq!(cpu.a, 0x09);
+    let (cpu, memory, _) = execute(&[
+        0x3E, 0x01, 0x32, 0x00, 0x40, 0x3E, 0x02, 0x32, 0x01, 0x40, 0x3E, 0x03, 0x32, 0x02, 0x40,
+        0x21, 0x00, 0x40, 0x11, 0x10, 0x40, 0x01, 0x03, 0x00, 0xED, 0xB0, 0x76,
+    ]);
+    assert_eq!(memory.read(0x4010), 1);
+    assert_eq!(memory.read(0x4012), 3);
+    assert_eq!(pair(cpu.b, cpu.c), 0);
+    let (cpu, _, _) = execute(&[0xDD, 0x21, 0x34, 0x12, 0xDD, 0x23, 0x76]);
+    assert_eq!(cpu.ix, 0x1235);
+    let (cpu, _, _) = execute(&[0xFD, 0x21, 0x00, 0x40, 0xFD, 0x36, 0x01, 0x99, 0x76]);
+    assert_eq!(cpu.iy, 0x4000);
+    let (_cpu, memory, _) = execute(&[0xFD, 0x21, 0x00, 0x40, 0xFD, 0x36, 0x02, 0x77, 0x76]);
+    assert_eq!(memory.read(0x4002), 0x77);
+    let (cpu, _, _) = execute(&[0xCB, 0x18, 0x76]);
+    assert_eq!(cpu.b, 0);
+    let (cpu, _, _) = execute(&[0x06, 0x01, 0xCB, 0x40, 0x76]);
+    assert_eq!(cpu.f & 0x40, 0);
+    let (cpu, _, _) = execute(&[0x06, 0xFF, 0xCB, 0x80, 0x76]);
+    assert_eq!(cpu.b, 0xFE);
+    let (cpu, _, _) = execute(&[0xCB, 0xC0, 0x76]);
+    assert_eq!(cpu.b, 1);
+    let (cpu, _, _) = execute(&[0xED, 0x44, 0x76]);
+    assert_eq!(cpu.a, 0);
+    let (cpu, _, _) = execute(&[0xED, 0x00, 0x76]);
+    assert!(cpu.halted);
+}
+
+#[test]
+fn rotates_cover_each_shift_kind() {
+    let opcodes = [0x00u8, 0x08, 0x10, 0x18, 0x20, 0x28, 0x30, 0x38];
+    let mut index = 0;
+    while index < opcodes.len() {
+        let (cpu, _, _) = execute(&[0x06, 0x81, 0xCB, opcodes[index], 0x76]);
+        assert_ne!(cpu.b, 0x81);
+        index += 1;
+    }
 }
 
 #[test]

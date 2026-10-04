@@ -45,7 +45,7 @@ fn bitmap(memory: &Memory) -> Vec<u8> {
 fn push_bitmap_row(bytes: &mut Vec<u8>, memory: &Memory, y: u16) {
     let mut x = 0u16;
     while x < CONTENT_WIDTH {
-        bytes.push(memory.read(bitmap_address(x, y)));
+        bytes.push(memory.read_video(bitmap_address(x, y)));
         x += 8;
     }
 }
@@ -63,7 +63,7 @@ fn attributes(memory: &Memory) -> Vec<Attribute> {
 fn push_attribute_row(rows: &mut Vec<Attribute>, memory: &Memory, y: u16) {
     let mut x = 0u16;
     while x < CONTENT_WIDTH {
-        rows.push(decode_attribute(memory.read(attribute_address(x, y))));
+        rows.push(decode_attribute(memory.read_video(attribute_address(x, y))));
         x += 8;
     }
 }

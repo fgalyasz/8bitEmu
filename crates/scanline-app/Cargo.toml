@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 bytemuck = { version = "1.25.2", features = ["derive"] }
+cpal = "0.15.3"
 pollster = "1.0.1"
 scanline-core = { path = "../scanline-core" }
 wgpu = { version = "30.0.1", features = ["wgsl"] }
