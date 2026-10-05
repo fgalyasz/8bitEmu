@@ -25,6 +25,7 @@ pub struct Machine {
     player: Option<Player>,
     recorder: Recorder,
     ear_live: bool,
+    stop_phase: u8,
     loading_sound: bool,
     border_rows: Vec<u8>,
 }
@@ -45,6 +46,7 @@ impl Machine {
             player: None,
             recorder: Recorder::default(),
             ear_live: false,
+            stop_phase: 0,
             loading_sound: true,
             border_rows: Vec::new(),
         }
@@ -82,6 +84,7 @@ impl Machine {
         self.ports.model_128 = model_128;
         self.booted = true;
         self.ear_live = false;
+        self.stop_phase = 0;
         Ok(())
     }
 
@@ -89,12 +92,14 @@ impl Machine {
         sna::load(&mut self.cpu, &mut self.memory, &mut self.ports, bytes)?;
         self.booted = true;
         self.ear_live = false;
+        self.stop_phase = 0;
         Ok(())
     }
 
     pub fn load_tape(&mut self, bytes: &[u8]) -> Result<(), CoreError> {
         self.player = Some(tape::open_tape(bytes, self.ports.model_128)?);
         self.ear_live = false;
+        self.stop_phase = 0;
         Ok(())
     }
 
@@ -144,6 +149,10 @@ impl Machine {
         self.booted
     }
 
+    pub fn is_128(&self) -> bool {
+        self.ports.model_128
+    }
+
     pub fn resume_tape(&mut self) {
         if let Some(player) = &mut self.player {
             player.resume();
@@ -189,6 +198,7 @@ impl Machine {
             player.rewind();
         }
         self.ear_live = false;
+        self.stop_phase = 0;
     }
 
     fn run_cpu_frame(&mut self) -> Result<(), CoreError> {
@@ -235,10 +245,28 @@ impl Machine {
     }
 
     fn finish_ear(&mut self) {
-        if self.ports.fe_reads >= 64 {
+        let reads = self.ports.fe_reads;
+        if reads >= 64 {
             self.ear_live = true;
         }
         self.ports.fe_reads = 0;
+        self.continue_tape(reads >= 64);
+    }
+
+    fn continue_tape(&mut self, polling: bool) {
+        let stopped = self.player.as_ref().is_some_and(Player::stopped);
+        if !stopped {
+            self.stop_phase = 0;
+            return;
+        }
+        let (phase, resume) = tape::resume_after_stop(self.stop_phase, polling);
+        self.stop_phase = phase;
+        if !resume {
+            return;
+        }
+        if let Some(player) = &mut self.player {
+            player.resume();
+        }
     }
 
     fn clocked(&mut self, interrupt: bool) -> Result<u32, CoreError> {

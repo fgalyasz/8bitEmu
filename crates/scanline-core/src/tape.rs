@@ -55,14 +55,11 @@ pub fn open_tape(bytes: &[u8], model_128: bool) -> Result<Player, CoreError> {
     })
 }
 
-pub fn load_prompt() -> Vec<Vec<KeyHold>> {
-    let mut frames = Vec::new();
-    warm(&mut frames, 100);
-    hold(&mut frames, 6, 0x08);
-    hold_pair(&mut frames, 7, 0x02, 5, 0x01);
-    hold_pair(&mut frames, 7, 0x02, 5, 0x01);
-    hold(&mut frames, 6, 0x01);
-    frames
+pub fn load_prompt(model_128: bool) -> Vec<Vec<KeyHold>> {
+    if model_128 {
+        return menu_enter();
+    }
+    basic_load()
 }
 
 impl Player {
@@ -104,6 +101,10 @@ impl Player {
             self.into = 0;
             self.index += 1;
         }
+    }
+
+    pub fn stopped(&self) -> bool {
+        self.stopped
     }
 
     pub fn resume(&mut self) {
@@ -567,6 +568,39 @@ fn encode_tap(blocks: &[Vec<u8>]) -> Vec<u8> {
     out
 }
 
+fn menu_enter() -> Vec<Vec<KeyHold>> {
+    let mut frames = Vec::new();
+    warm(&mut frames, 80);
+    hold(&mut frames, 6, 0x01);
+    frames
+}
+
+fn basic_load() -> Vec<Vec<KeyHold>> {
+    let mut frames = Vec::new();
+    warm(&mut frames, 100);
+    hold(&mut frames, 6, 0x08);
+    hold_pair(&mut frames, 7, 0x02, 5, 0x01);
+    hold_pair(&mut frames, 7, 0x02, 5, 0x01);
+    hold(&mut frames, 6, 0x01);
+    frames
+}
+
+pub fn resume_after_stop(phase: u8, polling: bool) -> (u8, bool) {
+    if phase == 0 {
+        return (1, false);
+    }
+    if polling && phase == 1 {
+        return (0, true);
+    }
+    if !polling {
+        return (2, false);
+    }
+    if phase == 2 {
+        return (0, true);
+    }
+    (phase, false)
+}
+
 fn warm(frames: &mut Vec<Vec<KeyHold>>, count: usize) {
     let mut index = 0;
     while index < count {
@@ -637,5 +671,29 @@ impl Scan<'_> {
     fn skip(&mut self, len: usize) -> Result<(), CoreError> {
         self.take(len)?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::resume_after_stop;
+
+    #[test]
+    fn a_stop_continues_only_after_its_frame() {
+        let (phase, resume) = resume_after_stop(0, true);
+        assert_eq!(phase, 1);
+        assert!(!resume);
+        let (phase, resume) = resume_after_stop(phase, true);
+        assert_eq!(phase, 0);
+        assert!(resume);
+        let (phase, resume) = resume_after_stop(1, false);
+        assert_eq!(phase, 2);
+        assert!(!resume);
+        let (phase, resume) = resume_after_stop(phase, false);
+        assert_eq!(phase, 2);
+        assert!(!resume);
+        let (phase, resume) = resume_after_stop(phase, true);
+        assert_eq!(phase, 0);
+        assert!(resume);
     }
 }

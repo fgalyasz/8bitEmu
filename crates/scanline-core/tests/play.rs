@@ -37,7 +37,7 @@ fn an_unknown_tzx_block_names_its_id() {
 
 #[test]
 fn the_load_prompt_quotes_with_symbol_shift() {
-    let frames = load_prompt();
+    let frames = load_prompt(false);
     assert!(frames[..100].iter().all(|frame| frame.is_empty()));
     let first = frames.iter().find(|frame| !frame.is_empty()).expect("key");
     assert_eq!(first.len(), 1);
@@ -48,6 +48,23 @@ fn the_load_prompt_quotes_with_symbol_shift() {
     assert_eq!(quote[0].mask, 0x02);
     assert_eq!(quote[1].row, 5);
     assert_eq!(quote[1].mask, 0x01);
+}
+
+#[test]
+fn a_128k_prompt_presses_enter() {
+    let frames = load_prompt(true);
+    let mut index = 0;
+    while index < frames.len() {
+        let frame = &frames[index];
+        let mut key = 0;
+        while key < frame.len() {
+            assert_eq!(frame[key].row, 6);
+            assert_eq!(frame[key].mask, 0x01);
+            key += 1;
+        }
+        index += 1;
+    }
+    assert!(frames.iter().any(|frame| !frame.is_empty()));
 }
 
 #[test]

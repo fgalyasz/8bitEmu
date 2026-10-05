@@ -167,7 +167,7 @@ impl Presenter {
     fn arm_prompt(&mut self) {
         self.release_holds();
         if self.machine.is_booted() && self.machine.has_tape() {
-            self.prompt = tape::load_prompt();
+            self.prompt = tape::load_prompt(self.machine.is_128());
             self.prompt_at = Some(0);
             return;
         }
