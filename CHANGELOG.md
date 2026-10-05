@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.3 — 2026-10-05
+
+- Escape no longer closes the window. Close it from the close button or the Scanline menu.
+
 ## 0.8.2 — 2026-10-04
 
 - Turbo load draws every refresh. The clock runs ahead for a short slice of each refresh instead of jumping to a single later frame.

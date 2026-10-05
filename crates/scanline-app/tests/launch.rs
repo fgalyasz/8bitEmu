@@ -1,4 +1,4 @@
-use scanline_app::{kempston_bit, parse_launch, spectrum_key};
+use scanline_app::{kempston_bit, parse_launch, quits, spectrum_key};
 use winit::keyboard::KeyCode;
 
 #[test]
@@ -40,6 +40,7 @@ fn digit_keys_reach_the_spectrum_matrix() {
     assert_eq!(spectrum_key(KeyCode::F1), None);
     assert_eq!(kempston_bit(KeyCode::ArrowRight), Some(0x01));
     assert_eq!(kempston_bit(KeyCode::AltRight), Some(0x10));
+    assert!(!quits(KeyCode::Escape));
 }
 
 fn args(values: &[&str]) -> Vec<String> {

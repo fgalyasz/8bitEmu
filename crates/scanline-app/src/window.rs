@@ -1,5 +1,5 @@
 use crate::gpu::{GpuError, Present};
-use crate::keys::{kempston_bit, spectrum_key};
+use crate::keys::{kempston_bit, quits, spectrum_key};
 use crate::launch::Session;
 use crate::open_file::{self, MenuBar, OpenKind, PictureSize, SaveKind, OPEN_ID};
 use crate::pace::{due_ticks, CATCH_UP, DISPLAY_FRAME, TURBO_SLICE};
@@ -200,7 +200,7 @@ impl App {
             return;
         };
         let down = event.state == ElementState::Pressed;
-        if down && code == KeyCode::Escape {
+        if down && quits(code) {
             event_loop.exit();
             return;
         }

@@ -1,5 +1,9 @@
 use winit::keyboard::KeyCode;
 
+pub fn quits(_code: KeyCode) -> bool {
+    false
+}
+
 pub fn kempston_bit(code: KeyCode) -> Option<u8> {
     match code {
         KeyCode::ArrowRight => Some(0x01),
