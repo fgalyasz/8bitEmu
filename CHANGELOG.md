@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.4 — 2026-10-05
+
+- AY noise is the chip's shift register, so the noise channel hisses instead of playing a musical tone.
+
 ## 0.8.3 — 2026-10-05
 
 - Escape no longer closes the window. Close it from the close button or the Scanline menu.
