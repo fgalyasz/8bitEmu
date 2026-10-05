@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.10 — 2026-10-05
+
+- Sustained notes stay steady. The speaker keeps a short lead, so a gap between frames does not wobble the pitch.
+
 ## 0.8.9 — 2026-10-05
 
 - AY notes play an octave higher, in the chip's real pitch range.

@@ -4,10 +4,12 @@ use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
 const QUEUE_LIMIT: usize = 48_000;
+const LEAD: usize = 4_096;
 
 struct Pending {
     samples: VecDeque<f32>,
     held: f32,
+    live: bool,
 }
 
 pub struct Speaker {
@@ -20,6 +22,7 @@ impl Speaker {
         let queue = Arc::new(Mutex::new(Pending {
             samples: VecDeque::new(),
             held: 0.0,
+            live: false,
         }));
         let stream = open_stream(queue.clone());
         if stream.is_none() {
@@ -96,14 +99,36 @@ fn build_i16(
 }
 
 fn fill_f32(data: &mut [f32], queue: &Mutex<Pending>, channels: usize) {
-    let Ok(mut queue) = queue.lock() else {
+    let Ok(mut pending) = queue.lock() else {
         silence(data);
         return;
     };
-    let pending = &mut *queue;
-    let samples = &mut pending.samples;
-    let held = &mut pending.held;
-    spread(data, samples, held, channels);
+    write_f32(data, &mut pending, channels);
+}
+
+fn write_f32(data: &mut [f32], pending: &mut Pending, channels: usize) {
+    let width = channels.max(1);
+    let mut index = 0;
+    while index < data.len() {
+        let sample = emit(pending);
+        let mut channel = 0;
+        while channel < width && index < data.len() {
+            data[index] = sample;
+            index += 1;
+            channel += 1;
+        }
+    }
+}
+
+fn emit(pending: &mut Pending) -> f32 {
+    if !pending.live && pending.samples.len() < LEAD {
+        if let Some(sample) = pending.samples.front() {
+            pending.held = *sample;
+        }
+        return pending.held;
+    }
+    pending.live = true;
+    next_sample(&mut pending.samples, &mut pending.held)
 }
 
 pub fn spread(data: &mut [f32], queue: &mut VecDeque<f32>, held: &mut f32, channels: usize) {
@@ -133,7 +158,7 @@ fn channel_count(config: &StreamConfig) -> usize {
 }
 
 fn fill_i16(data: &mut [i16], queue: &Mutex<Pending>, channels: usize) {
-    let Ok(mut queue) = queue.lock() else {
+    let Ok(mut pending) = queue.lock() else {
         let mut index = 0;
         while index < data.len() {
             data[index] = 0;
@@ -144,10 +169,7 @@ fn fill_i16(data: &mut [i16], queue: &Mutex<Pending>, channels: usize) {
     let width = channels.max(1);
     let mut index = 0;
     while index < data.len() {
-        let pending = &mut *queue;
-        let samples = &mut pending.samples;
-        let held = &mut pending.held;
-        let sample = (next_sample(samples, held) * 32767.0) as i16;
+        let sample = (emit(&mut pending) * 32767.0) as i16;
         let mut channel = 0;
         while channel < width && index < data.len() {
             data[index] = sample;
@@ -167,4 +189,32 @@ fn silence(data: &mut [f32]) {
 
 fn report_error(error: cpal::StreamError) {
     eprintln!("scanline: {error}");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{emit, Pending, LEAD};
+    use std::collections::VecDeque;
+
+    #[test]
+    fn playback_waits_until_the_lead_is_queued() {
+        let mut pending = Pending {
+            samples: VecDeque::new(),
+            held: 0.0,
+            live: false,
+        };
+        assert_eq!(emit(&mut pending), 0.0);
+        let mut index = 0;
+        while index < LEAD - 1 {
+            pending.samples.push_back(-0.2);
+            index += 1;
+        }
+        assert_eq!(emit(&mut pending), -0.2);
+        assert!(!pending.live);
+        assert_eq!(pending.samples.len(), LEAD - 1);
+        pending.samples.push_back(0.5);
+        assert_eq!(emit(&mut pending), -0.2);
+        assert!(pending.live);
+        assert_eq!(pending.samples.len(), LEAD - 1);
+    }
 }
