@@ -5,14 +5,22 @@ use std::sync::{Arc, Mutex};
 
 const QUEUE_LIMIT: usize = 48_000;
 
+struct Pending {
+    samples: VecDeque<f32>,
+    held: f32,
+}
+
 pub struct Speaker {
-    queue: Arc<Mutex<VecDeque<f32>>>,
+    queue: Arc<Mutex<Pending>>,
     _stream: Option<Stream>,
 }
 
 impl Speaker {
     pub fn open() -> Self {
-        let queue = Arc::new(Mutex::new(VecDeque::new()));
+        let queue = Arc::new(Mutex::new(Pending {
+            samples: VecDeque::new(),
+            held: 0.0,
+        }));
         let stream = open_stream(queue.clone());
         if stream.is_none() {
             eprintln!("scanline: audio device unavailable");
@@ -29,10 +37,10 @@ impl Speaker {
         };
         let mut index = 0;
         while index < samples.len() {
-            queue.push_back(samples[index]);
+            queue.samples.push_back(samples[index]);
             index += 1;
         }
-        trim(&mut queue);
+        trim(&mut queue.samples);
     }
 }
 
@@ -42,7 +50,7 @@ fn trim(queue: &mut VecDeque<f32>) {
     }
 }
 
-fn open_stream(queue: Arc<Mutex<VecDeque<f32>>>) -> Option<Stream> {
+fn open_stream(queue: Arc<Mutex<Pending>>) -> Option<Stream> {
     let device = cpal::default_host().default_output_device()?;
     let supported = device.default_output_config().ok()?;
     let config = supported.config();
@@ -58,7 +66,7 @@ fn open_stream(queue: Arc<Mutex<VecDeque<f32>>>) -> Option<Stream> {
 fn build_f32(
     device: &cpal::Device,
     config: &StreamConfig,
-    queue: Arc<Mutex<VecDeque<f32>>>,
+    queue: Arc<Mutex<Pending>>,
 ) -> Option<Stream> {
     let channels = channel_count(config);
     device
@@ -74,7 +82,7 @@ fn build_f32(
 fn build_i16(
     device: &cpal::Device,
     config: &StreamConfig,
-    queue: Arc<Mutex<VecDeque<f32>>>,
+    queue: Arc<Mutex<Pending>>,
 ) -> Option<Stream> {
     let channels = channel_count(config);
     device
@@ -87,19 +95,22 @@ fn build_i16(
         .ok()
 }
 
-fn fill_f32(data: &mut [f32], queue: &Mutex<VecDeque<f32>>, channels: usize) {
+fn fill_f32(data: &mut [f32], queue: &Mutex<Pending>, channels: usize) {
     let Ok(mut queue) = queue.lock() else {
         silence(data);
         return;
     };
-    spread(data, &mut queue, channels);
+    let pending = &mut *queue;
+    let samples = &mut pending.samples;
+    let held = &mut pending.held;
+    spread(data, samples, held, channels);
 }
 
-pub fn spread(data: &mut [f32], queue: &mut VecDeque<f32>, channels: usize) {
+pub fn spread(data: &mut [f32], queue: &mut VecDeque<f32>, held: &mut f32, channels: usize) {
     let width = channels.max(1);
     let mut index = 0;
     while index < data.len() {
-        let sample = pop(queue);
+        let sample = next_sample(queue, held);
         let mut channel = 0;
         while channel < width && index < data.len() {
             data[index] = sample;
@@ -109,11 +120,19 @@ pub fn spread(data: &mut [f32], queue: &mut VecDeque<f32>, channels: usize) {
     }
 }
 
+fn next_sample(queue: &mut VecDeque<f32>, held: &mut f32) -> f32 {
+    let Some(sample) = queue.pop_front() else {
+        return *held;
+    };
+    *held = sample;
+    sample
+}
+
 fn channel_count(config: &StreamConfig) -> usize {
     usize::from(config.channels).max(1)
 }
 
-fn fill_i16(data: &mut [i16], queue: &Mutex<VecDeque<f32>>, channels: usize) {
+fn fill_i16(data: &mut [i16], queue: &Mutex<Pending>, channels: usize) {
     let Ok(mut queue) = queue.lock() else {
         let mut index = 0;
         while index < data.len() {
@@ -125,7 +144,10 @@ fn fill_i16(data: &mut [i16], queue: &Mutex<VecDeque<f32>>, channels: usize) {
     let width = channels.max(1);
     let mut index = 0;
     while index < data.len() {
-        let sample = (pop(&mut queue) * 32767.0) as i16;
+        let pending = &mut *queue;
+        let samples = &mut pending.samples;
+        let held = &mut pending.held;
+        let sample = (next_sample(samples, held) * 32767.0) as i16;
         let mut channel = 0;
         while channel < width && index < data.len() {
             data[index] = sample;
@@ -141,10 +163,6 @@ fn silence(data: &mut [f32]) {
         data[index] = 0.0;
         index += 1;
     }
-}
-
-fn pop(queue: &mut VecDeque<f32>) -> f32 {
-    queue.pop_front().unwrap_or(0.0)
 }
 
 fn report_error(error: cpal::StreamError) {

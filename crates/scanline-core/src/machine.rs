@@ -13,7 +13,7 @@ const FRAME_CYCLES: u32 = 69_888;
 const LINE_CYCLES: u32 = 224;
 const FIRST_VISIBLE_LINE: u32 = 48;
 const SAMPLE_RATE: u32 = 48_000;
-const CPU_CLOCK: u32 = 3_500_000;
+const AUDIO_CLOCK: u32 = FRAME_CYCLES * 50;
 
 pub struct Machine {
     cpu: Cpu,
@@ -339,8 +339,8 @@ impl Machine {
         self.ports.ay.tick(cycles / 2);
         let mixed = (beeper + self.ear_level() + tone).clamp(-1.0, 1.0);
         self.audio_acc += cycles.saturating_mul(SAMPLE_RATE);
-        let count = self.audio_acc / CPU_CLOCK;
-        self.audio_acc %= CPU_CLOCK;
+        let count = self.audio_acc / AUDIO_CLOCK;
+        self.audio_acc %= AUDIO_CLOCK;
         push_samples(&mut self.audio, mixed, count);
     }
 }

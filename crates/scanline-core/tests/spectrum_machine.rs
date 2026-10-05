@@ -141,6 +141,12 @@ fn beeper_and_ay_reach_the_frame_buffer() {
     let audio = machine.take_audio();
     assert!(audio.iter().any(|sample| *sample > 0.0));
     assert!(audio.iter().any(|sample| *sample < 0.0));
+    let mut quiet = Machine::new();
+    quiet.load_rom(&program(&[0x76]), false).expect("rom");
+    quiet.frame().expect("frame");
+    let held = quiet.take_audio();
+    assert_eq!(held.len(), 960);
+    assert!(held.iter().all(|sample| *sample == -0.2));
     let mut ay = Machine::new();
     ay.load_rom(
         &program(&[

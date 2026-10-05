@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.8 — 2026-10-05
+
+- A quiet screen stays quiet. A short gap in the sound no longer becomes a click.
+
 ## 0.8.7 — 2026-10-05
 
 - The 128K menu step clicks once. It no longer keeps knocking after a game starts.

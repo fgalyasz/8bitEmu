@@ -14,7 +14,11 @@ fn lateness_runs_whole_steps_up_to_the_cap() {
 #[test]
 fn one_sample_fills_every_channel() {
     let mut queue = VecDeque::from([0.5, -0.5]);
+    let mut held = 0.0;
     let mut data = [0.0; 4];
-    spread(&mut data, &mut queue, 2);
+    spread(&mut data, &mut queue, &mut held, 2);
     assert_eq!(data, [0.5, 0.5, -0.5, -0.5]);
+    let mut rest = [0.0; 2];
+    spread(&mut rest, &mut queue, &mut held, 2);
+    assert_eq!(rest, [-0.5, -0.5]);
 }
