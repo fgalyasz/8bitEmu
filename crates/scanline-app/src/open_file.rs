@@ -203,7 +203,7 @@ fn sound_menu() -> muda::Result<(Submenu, CheckMenuItem)> {
 }
 
 fn loading_sound_item() -> CheckMenuItem {
-    CheckMenuItem::with_id(LOADING_SOUND, "Loading sound", true, true, Some(sound_key()))
+    CheckMenuItem::with_id(LOADING_SOUND, "Loading sound", true, false, Some(sound_key()))
 }
 
 fn sound_key() -> Accelerator {

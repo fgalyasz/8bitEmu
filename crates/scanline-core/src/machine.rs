@@ -48,7 +48,7 @@ impl Machine {
             recorder: Recorder::default(),
             ear_live: false,
             stop_phase: 0,
-            loading_sound: true,
+            loading_sound: false,
             silent: false,
             border_rows: Vec::new(),
         }

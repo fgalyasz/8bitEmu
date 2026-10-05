@@ -267,7 +267,7 @@ fn the_tape_waits_until_the_ear_is_polled() {
 #[test]
 fn loading_sound_off_budgets_turbo_only_while_loading() {
     let mut parked = Machine::new();
-    parked.set_loading_sound(false);
+    assert!(!parked.loading_sound());
     parked.load_rom(&vec![0x76; 16384], false).expect("halt");
     parked.load_tape(&tap_block(&[0x00, 0x00])).expect("tape");
     parked.frame().expect("frame");
@@ -276,11 +276,11 @@ fn loading_sound_off_budgets_turbo_only_while_loading() {
     let mut polling = polling_rom();
     polling.load_tape(&tap_block(&[0x00, 0x00])).expect("tape");
     polling.frame().expect("arm");
-    assert_eq!(polling.turbo_budget(), 0);
-    assert!(polling.hears_loading());
-    polling.set_loading_sound(false);
     assert_eq!(polling.turbo_budget(), 1);
     assert!(!polling.hears_loading());
+    polling.set_loading_sound(true);
+    assert_eq!(polling.turbo_budget(), 0);
+    assert!(polling.hears_loading());
 }
 
 #[test]

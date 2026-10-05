@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.13 — 2026-10-05
+
+- A tape loads at turbo by default. Turn Loading sound on to hear the border tone.
+
 ## 0.8.12 — 2026-10-05
 
 - Saboteur II and other 128K tunes write the AY through OUTD. That instruction is in place, so the music plays.
