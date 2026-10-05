@@ -7,7 +7,13 @@ pub struct Ay {
     noise_at: u32,
     rng: u32,
     env_at: u32,
-    env_level: u8,
+    env_index: u8,
+    env_holding: bool,
+    env_attack: bool,
+    env_shape_attack: bool,
+    env_continue: bool,
+    env_alternate: bool,
+    env_hold: bool,
 }
 
 impl Default for Ay {
@@ -20,7 +26,13 @@ impl Default for Ay {
             noise_at: 0,
             rng: 1,
             env_at: 0,
-            env_level: 0,
+            env_index: 0,
+            env_holding: true,
+            env_attack: false,
+            env_shape_attack: false,
+            env_continue: false,
+            env_alternate: false,
+            env_hold: false,
         }
     }
 }
@@ -33,6 +45,9 @@ impl Ay {
     pub fn write(&mut self, value: u8) {
         let index = usize::from(self.selected);
         self.regs[index] = masked(index, value);
+        if index == 13 {
+            self.retrigger_envelope();
+        }
     }
 
     pub fn read(&self) -> u8 {
@@ -88,7 +103,46 @@ impl Ay {
         self.env_at += clocks;
         let steps = self.env_at / period;
         self.env_at %= period;
-        self.env_level = self.env_level.wrapping_add(steps as u8) & 0x0F;
+        self.advance_envelope(steps);
+    }
+
+    fn advance_envelope(&mut self, mut steps: u32) {
+        while steps > 0 && !self.env_holding {
+            self.step_envelope();
+            steps -= 1;
+        }
+    }
+
+    fn step_envelope(&mut self) {
+        self.env_index = self.env_index.saturating_add(1);
+        if self.env_index < 16 {
+            return;
+        }
+        self.finish_envelope();
+    }
+
+    fn finish_envelope(&mut self) {
+        self.env_index = 0;
+        if !self.env_continue || self.env_hold {
+            self.env_holding = true;
+            return;
+        }
+        if !self.env_alternate {
+            return;
+        }
+        self.env_attack = !self.env_attack;
+    }
+
+    fn retrigger_envelope(&mut self) {
+        let shape = self.regs[13];
+        self.env_index = 0;
+        self.env_at = 0;
+        self.env_holding = false;
+        self.env_continue = shape & 0x08 != 0;
+        self.env_attack = shape & 0x04 != 0;
+        self.env_shape_attack = self.env_attack;
+        self.env_alternate = shape & 0x02 != 0;
+        self.env_hold = shape & 0x01 != 0;
     }
 
     fn channel(&self, index: usize) -> f32 {
@@ -101,7 +155,30 @@ impl Ay {
 
     fn volume(&self, index: usize) -> u8 {
         let raw = self.regs[8 + index];
-        if raw & 0x10 == 0 { raw & 0x0F } else { self.env_level }
+        if raw & 0x10 == 0 {
+            return raw & 0x0F;
+        }
+        self.envelope_amplitude()
+    }
+
+    fn envelope_amplitude(&self) -> u8 {
+        if self.env_holding {
+            return self.held_amplitude();
+        }
+        if self.env_attack {
+            return self.env_index;
+        }
+        15 - self.env_index
+    }
+
+    fn held_amplitude(&self) -> u8 {
+        if !self.env_continue {
+            return 0;
+        }
+        if self.env_shape_attack != self.env_alternate {
+            return 15;
+        }
+        0
     }
 
     fn audible(&self, index: usize) -> bool {
@@ -191,11 +268,51 @@ mod tests {
         write(&mut ay, 7, 0x3E);
         write(&mut ay, 8, 0x10);
         write(&mut ay, 11, 1);
+        write(&mut ay, 13, 0x0C);
         ay.tick(16);
         assert_eq!(ay.sample(), 0.0);
         write(&mut ay, 0, 255);
         ay.tick(240);
         assert!(ay.sample() > 0.0);
+    }
+
+    #[test]
+    fn a_decay_hits_once_and_then_stays_quiet() {
+        let mut once = drum(0x00);
+        assert!(once.sample() > 0.2);
+        once.tick(16 * 256);
+        assert_eq!(once.sample(), 0.0);
+        once.tick(16 * 256);
+        assert_eq!(once.sample(), 0.0);
+        write(&mut once, 13, 0x00);
+        assert!(once.sample() > 0.2);
+        let mut repeating = drum(0x08);
+        repeating.tick(16 * 256);
+        assert!(repeating.sample() > 0.2);
+        let mut held = drum(0x0B);
+        held.tick(16 * 256);
+        let loud = held.sample();
+        assert!(loud > 0.2);
+        held.tick(16 * 256);
+        assert_eq!(held.sample(), loud);
+        let mut flip = drum(0x0A);
+        flip.tick(16 * 256);
+        assert_eq!(flip.sample(), 0.0);
+        flip.tick(256);
+        assert!(flip.sample() > 0.0);
+        let mut rest = drum(0x09);
+        rest.tick(16 * 256);
+        assert_eq!(rest.sample(), 0.0);
+    }
+
+    #[test]
+    fn an_untriggered_envelope_stays_quiet() {
+        let mut ay = chip();
+        write(&mut ay, 7, 0x3F);
+        write(&mut ay, 8, 0x10);
+        write(&mut ay, 11, 1);
+        ay.tick(16 * 256);
+        assert_eq!(ay.sample(), 0.0);
     }
 
     fn chip() -> Ay {
@@ -208,6 +325,15 @@ mod tests {
         write(&mut noise, 7, 0x07);
         write(&mut noise, 8, 0x0F);
         noise
+    }
+
+    fn drum(shape: u8) -> Ay {
+        let mut ay = chip();
+        write(&mut ay, 7, 0x3F);
+        write(&mut ay, 8, 0x10);
+        write(&mut ay, 11, 1);
+        write(&mut ay, 13, shape);
+        ay
     }
 
     fn write(ay: &mut Ay, register: u8, value: u8) {

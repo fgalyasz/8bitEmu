@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.7 — 2026-10-05
+
+- The 128K menu step clicks once. It no longer keeps knocking after a game starts.
+
 ## 0.8.6 — 2026-10-05
 
 - With the loading sound off, a tape finishes in a few seconds. The loading picture stays on screen.
