@@ -207,7 +207,7 @@ fn masked(index: usize, value: u8) -> u8 {
 
 fn period_of(low: u8, high: u8) -> u32 {
     let period = (u32::from(high & 0x0F) << 8) | u32::from(low);
-    period.max(1).saturating_mul(16)
+    period.max(1).saturating_mul(8)
 }
 
 fn envelope_period(low: u8, high: u8) -> u32 {
@@ -220,15 +220,19 @@ mod tests {
     use super::Ay;
 
     #[test]
-    fn tone_and_noise_count_sixteen_clocks() {
+    fn a_tone_completes_a_cycle_in_sixteen_times_the_period() {
         let mut tone = chip();
-        write(&mut tone, 0, 4);
+        write(&mut tone, 0, 1);
         write(&mut tone, 7, 0x3E);
         write(&mut tone, 8, 0x0F);
-        tone.tick(63);
+        tone.tick(7);
         assert_eq!(tone.sample(), 0.0);
         tone.tick(1);
         assert!(tone.sample() > 0.3);
+        tone.tick(7);
+        assert!(tone.sample() > 0.3);
+        tone.tick(1);
+        assert_eq!(tone.sample(), 0.0);
     }
 
     #[test]
@@ -269,10 +273,10 @@ mod tests {
         write(&mut ay, 8, 0x10);
         write(&mut ay, 11, 1);
         write(&mut ay, 13, 0x0C);
-        ay.tick(16);
+        ay.tick(8);
         assert_eq!(ay.sample(), 0.0);
         write(&mut ay, 0, 255);
-        ay.tick(240);
+        ay.tick(248);
         assert!(ay.sample() > 0.0);
     }
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.9 — 2026-10-05
+
+- AY notes play an octave higher, in the chip's real pitch range.
+
 ## 0.8.8 — 2026-10-05
 
 - A quiet screen stays quiet. A short gap in the sound no longer becomes a click.
