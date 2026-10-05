@@ -3,7 +3,7 @@ use crate::z80::{Cpu, Ports};
 
 pub fn run(cpu: &mut Cpu, memory: &mut Memory, ports: &mut Ports) -> u32 {
     let opcode = canonical(super::fetch_m1(cpu, memory));
-    if let Some(cycles) = block(cpu, memory, opcode) {
+    if let Some(cycles) = block(cpu, memory, ports, opcode) {
         return cycles;
     }
     if let Some(cycles) = io_or_math(cpu, memory, ports, opcode) {
@@ -23,7 +23,7 @@ fn canonical(opcode: u8) -> u8 {
     }
 }
 
-fn block(cpu: &mut Cpu, memory: &mut Memory, opcode: u8) -> Option<u32> {
+fn block(cpu: &mut Cpu, memory: &mut Memory, ports: &mut Ports, opcode: u8) -> Option<u32> {
     match opcode {
         0xA0 => Some(transfer(cpu, memory, true, false)),
         0xA8 => Some(transfer(cpu, memory, false, false)),
@@ -33,6 +33,14 @@ fn block(cpu: &mut Cpu, memory: &mut Memory, opcode: u8) -> Option<u32> {
         0xA9 => Some(compare(cpu, memory, false, false)),
         0xB1 => Some(compare(cpu, memory, true, true)),
         0xB9 => Some(compare(cpu, memory, false, true)),
+        0xA2 => Some(input_block(cpu, memory, ports, true, false)),
+        0xAA => Some(input_block(cpu, memory, ports, false, false)),
+        0xB2 => Some(input_block(cpu, memory, ports, true, true)),
+        0xBA => Some(input_block(cpu, memory, ports, false, true)),
+        0xA3 => Some(output_block(cpu, memory, ports, true, false)),
+        0xAB => Some(output_block(cpu, memory, ports, false, false)),
+        0xB3 => Some(output_block(cpu, memory, ports, true, true)),
+        0xBB => Some(output_block(cpu, memory, ports, false, true)),
         _ => None,
     }
 }
@@ -139,6 +147,49 @@ fn repeat_cycles(cpu: &mut Cpu, again: bool) -> u32 {
         return 21;
     }
     16
+}
+
+fn output_block(
+    cpu: &mut Cpu,
+    memory: &mut Memory,
+    ports: &mut Ports,
+    increment: bool,
+    repeat: bool,
+) -> u32 {
+    let hl = super::read_pair(cpu, 2);
+    let value = memory.read(hl);
+    cpu.b = cpu.b.wrapping_sub(1);
+    ports.output(memory, super::pair(cpu.b, cpu.c), value);
+    step_pair(cpu, 2, increment);
+    cpu.f = block_io_flags(cpu.b, value);
+    repeat_cycles(cpu, repeat && cpu.b != 0)
+}
+
+fn input_block(
+    cpu: &mut Cpu,
+    memory: &mut Memory,
+    ports: &mut Ports,
+    increment: bool,
+    repeat: bool,
+) -> u32 {
+    cpu.b = cpu.b.wrapping_sub(1);
+    let value = ports.input(super::pair(cpu.b, cpu.c));
+    let hl = super::read_pair(cpu, 2);
+    memory.write(hl, value);
+    step_pair(cpu, 2, increment);
+    cpu.f = block_io_flags(cpu.b, value);
+    repeat_cycles(cpu, repeat && cpu.b != 0)
+}
+
+fn block_io_flags(count: u8, value: u8) -> u8 {
+    let mut flags = super::NEGATIVE;
+    if count == 0 {
+        flags |= super::ZERO;
+    }
+    if value & 0x80 != 0 {
+        flags |= super::SIGN;
+    }
+    flags
 }
 
 fn step_pair(cpu: &mut Cpu, which: u8, increment: bool) {

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.12 — 2026-10-05
+
+- Saboteur II and other 128K tunes write the AY through OUTD. That instruction is in place, so the music plays.
+
 ## 0.8.11 — 2026-10-05
 
 - AY volumes follow the chip's measured steps, so a tune keeps its shape. The envelope also steps at the chip's rate.
