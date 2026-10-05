@@ -1,6 +1,6 @@
 use scanline_core::{
-    aspect_fit, load_prompt, open_tape, percent_size, place_percent, CoreError, Machine, Memory,
-    Ports, PresentPace, Presenter, Recorder,
+    aspect_fit, load_prompt, open_tape, percent_size, place_percent, BORDER, CONTENT_HEIGHT,
+    CONTENT_WIDTH, CoreError, Machine, Memory, Ports, PresentPace, Presenter, Recorder,
 };
 
 #[test]
@@ -321,6 +321,25 @@ fn a_quiet_load_runs_ahead_after_the_prompt() {
     assert!(quiet.rush().expect("ahead").is_some());
     assert!(quiet.tape_edge() > heard.tape_edge());
     assert!(heard.rush().expect("heard").is_none());
+}
+
+#[test]
+fn a_quiet_rush_paints_after_the_hidden_frames() {
+    let mut quiet = polling_presenter(false);
+    let mut tick = 0;
+    while tick < 148 {
+        quiet.on_display_tick().expect("tick");
+        tick += 1;
+    }
+    quiet.on_display_tick().expect("step");
+    assert!(quiet.rush_cpu().expect("cpu"));
+    assert!(quiet.take_audio().is_empty());
+    let before = quiet.tape_edge();
+    assert!(quiet.rush_cpu().expect("more"));
+    assert!(quiet.tape_edge() > before);
+    let frame = quiet.paint_latest().expect("paint");
+    assert_eq!(frame.width, CONTENT_WIDTH + BORDER * 2);
+    assert_eq!(frame.height, CONTENT_HEIGHT + BORDER * 2);
 }
 
 fn polling_presenter(sound: bool) -> Presenter {

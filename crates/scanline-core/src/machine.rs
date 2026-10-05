@@ -27,6 +27,7 @@ pub struct Machine {
     ear_live: bool,
     stop_phase: u8,
     loading_sound: bool,
+    silent: bool,
     border_rows: Vec<u8>,
 }
 
@@ -48,6 +49,7 @@ impl Machine {
             ear_live: false,
             stop_phase: 0,
             loading_sound: true,
+            silent: false,
             border_rows: Vec::new(),
         }
     }
@@ -55,10 +57,21 @@ impl Machine {
     pub fn frame(&mut self) -> Result<Frame, CoreError> {
         if self.booted {
             self.run_cpu_frame()?;
-            return frame_with_border(&self.memory, &self.border_rows);
+            return self.paint();
         }
         run_until_halt(&mut self.cpu, &mut self.memory, &mut self.ports)?;
         frame_from(&self.memory, self.ports.border)
+    }
+
+    pub(crate) fn advance(&mut self) -> Result<(), CoreError> {
+        self.silent = true;
+        let result = self.run_cpu_frame();
+        self.silent = false;
+        result
+    }
+
+    pub(crate) fn paint(&self) -> Result<Frame, CoreError> {
+        frame_with_border(&self.memory, &self.border_rows)
     }
 
     pub fn read(&self, address: u16) -> u8 {
@@ -317,6 +330,10 @@ impl Machine {
     }
 
     fn mix(&mut self, cycles: u32) {
+        if self.silent {
+            self.ports.ay.tick(cycles / 2);
+            return;
+        }
         let beeper = if self.ports.speaker == 0 { -0.2 } else { 0.2 };
         let tone = self.ports.ay.sample();
         self.ports.ay.tick(cycles / 2);

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.6 — 2026-10-05
+
+- With the loading sound off, a tape finishes in a few seconds. The loading picture stays on screen.
+
 ## 0.8.5 — 2026-10-05
 
 - 128K starts Tape Loader with Enter instead of typing `LOAD ""`. A tape that stops continues when the loader is still reading, and again after a quiet gap.

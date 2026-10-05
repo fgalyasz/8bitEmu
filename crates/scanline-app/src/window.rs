@@ -376,10 +376,17 @@ impl App {
 
     fn rush_load(&mut self) {
         let start = Instant::now();
+        let mut moved = false;
         while start.elapsed() < TURBO_SLICE {
-            let Ok(Some(frame)) = self.presenter.rush() else {
-                return;
+            let Ok(true) = self.presenter.rush_cpu() else {
+                break;
             };
+            moved = true;
+        }
+        if !moved {
+            return;
+        }
+        if let Ok(frame) = self.presenter.paint_latest() {
             self.picture = Some(frame);
         }
     }

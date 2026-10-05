@@ -127,19 +127,25 @@ impl Presenter {
     }
 
     pub fn rush(&mut self) -> Result<Option<Frame>, CoreError> {
-        if self.prompt_at.is_some() || self.machine.turbo_budget() == 0 {
+        if !self.rush_cpu()? {
             return Ok(None);
         }
-        self.store_warp_frame()?;
-        Ok(self.frame.clone())
+        Ok(Some(self.paint_latest()?))
     }
 
-    fn store_warp_frame(&mut self) -> Result<(), CoreError> {
-        let mut frame = self.machine.frame()?;
+    pub fn rush_cpu(&mut self) -> Result<bool, CoreError> {
+        if self.prompt_at.is_some() || self.machine.turbo_budget() == 0 {
+            return Ok(false);
+        }
+        self.machine.advance()?;
+        Ok(true)
+    }
+
+    pub fn paint_latest(&mut self) -> Result<Frame, CoreError> {
+        let mut frame = self.machine.paint()?;
         apply_history(&mut frame, &mut self.history)?;
-        let _ = self.machine.take_audio();
-        self.frame = Some(frame);
-        Ok(())
+        self.frame = Some(frame.clone());
+        Ok(frame)
     }
 
     fn ensure_source(&mut self, source: u64) -> Result<(), CoreError> {
