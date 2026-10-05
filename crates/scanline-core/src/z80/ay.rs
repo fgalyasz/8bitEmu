@@ -150,7 +150,7 @@ impl Ay {
         if volume == 0 || !self.audible(index) {
             return 0.0;
         }
-        f32::from(volume) / 15.0
+        amplitude(volume)
     }
 
     fn volume(&self, index: usize) -> u8 {
@@ -210,9 +210,18 @@ fn period_of(low: u8, high: u8) -> u32 {
     period.max(1).saturating_mul(8)
 }
 
+fn amplitude(level: u8) -> f32 {
+    const LEVELS: [f32; 16] = [
+        0.0, 0.0137483785, 0.020462349, 0.029053178, 0.042343784, 0.061844815, 0.08471809,
+        0.13690394, 0.169131, 0.26466775, 0.3527123, 0.44994277, 0.57038224, 0.6872816,
+        0.8481727, 1.0,
+    ];
+    LEVELS[usize::from(level & 0x0F)]
+}
+
 fn envelope_period(low: u8, high: u8) -> u32 {
     let period = (u32::from(high) << 8) | u32::from(low);
-    period.max(1).saturating_mul(256)
+    period.max(1).saturating_mul(16)
 }
 
 #[cfg(test)]
@@ -266,7 +275,15 @@ mod tests {
     }
 
     #[test]
-    fn the_envelope_counts_two_hundred_fifty_six_clocks() {
+    fn a_mid_level_is_quieter_than_a_linear_step() {
+        let full = held_level(0x0F);
+        let mid = held_level(0x08);
+        assert!(full.sample() > 0.3);
+        assert!(mid.sample() * 4.0 < full.sample());
+    }
+
+    #[test]
+    fn the_envelope_counts_sixteen_clocks_per_step() {
         let mut ay = chip();
         write(&mut ay, 0, 1);
         write(&mut ay, 7, 0x3E);
@@ -276,7 +293,7 @@ mod tests {
         ay.tick(8);
         assert_eq!(ay.sample(), 0.0);
         write(&mut ay, 0, 255);
-        ay.tick(248);
+        ay.tick(8);
         assert!(ay.sample() > 0.0);
     }
 
@@ -284,28 +301,28 @@ mod tests {
     fn a_decay_hits_once_and_then_stays_quiet() {
         let mut once = drum(0x00);
         assert!(once.sample() > 0.2);
-        once.tick(16 * 256);
+        once.tick(16 * 16);
         assert_eq!(once.sample(), 0.0);
-        once.tick(16 * 256);
+        once.tick(16 * 16);
         assert_eq!(once.sample(), 0.0);
         write(&mut once, 13, 0x00);
         assert!(once.sample() > 0.2);
         let mut repeating = drum(0x08);
-        repeating.tick(16 * 256);
+        repeating.tick(16 * 16);
         assert!(repeating.sample() > 0.2);
         let mut held = drum(0x0B);
-        held.tick(16 * 256);
+        held.tick(16 * 16);
         let loud = held.sample();
         assert!(loud > 0.2);
-        held.tick(16 * 256);
+        held.tick(16 * 16);
         assert_eq!(held.sample(), loud);
         let mut flip = drum(0x0A);
-        flip.tick(16 * 256);
+        flip.tick(16 * 16);
         assert_eq!(flip.sample(), 0.0);
-        flip.tick(256);
+        flip.tick(16);
         assert!(flip.sample() > 0.0);
         let mut rest = drum(0x09);
-        rest.tick(16 * 256);
+        rest.tick(16 * 16);
         assert_eq!(rest.sample(), 0.0);
     }
 
@@ -315,7 +332,7 @@ mod tests {
         write(&mut ay, 7, 0x3F);
         write(&mut ay, 8, 0x10);
         write(&mut ay, 11, 1);
-        ay.tick(16 * 256);
+        ay.tick(16 * 16);
         assert_eq!(ay.sample(), 0.0);
     }
 
@@ -329,6 +346,13 @@ mod tests {
         write(&mut noise, 7, 0x07);
         write(&mut noise, 8, 0x0F);
         noise
+    }
+
+    fn held_level(volume: u8) -> Ay {
+        let mut ay = chip();
+        write(&mut ay, 7, 0x3F);
+        write(&mut ay, 8, volume);
+        ay
     }
 
     fn drum(shape: u8) -> Ay {

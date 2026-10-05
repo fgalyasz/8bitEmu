@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.11 — 2026-10-05
+
+- AY volumes follow the chip's measured steps, so a tune keeps its shape. The envelope also steps at the chip's rate.
+
 ## 0.8.10 — 2026-10-05
 
 - Sustained notes stay steady. The speaker keeps a short lead, so a gap between frames does not wobble the pitch.
