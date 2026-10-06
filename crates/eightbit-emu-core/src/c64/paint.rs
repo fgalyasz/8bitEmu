@@ -3,6 +3,7 @@ use crate::error::CoreError;
 use crate::frame::{Frame, frame_from_indexes};
 
 use super::mem::Map;
+use super::sprites;
 
 pub const WIDTH: u16 = 320;
 pub const HEIGHT: u16 = 200;
@@ -28,6 +29,7 @@ fn raster(map: &Map, background: u8) -> Vec<u8> {
         paint_row(map, &mut pixels, row, background);
         row += 1;
     }
+    sprites::paint(map, &mut pixels);
     pixels
 }
 

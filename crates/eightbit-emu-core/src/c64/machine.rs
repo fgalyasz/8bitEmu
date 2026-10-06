@@ -37,6 +37,7 @@ impl Machine {
         chargen: &[u8],
     ) -> Result<(), CoreError> {
         self.map.load_roms(kernal, basic, chargen)?;
+        self.map.vic[0x18] = 0x14;
         self.map.vic[0x20] = 0x0E;
         self.map.vic[0x21] = 0x06;
         cpu::reset(&mut self.cpu, &mut self.map);
