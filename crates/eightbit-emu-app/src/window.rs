@@ -1,6 +1,6 @@
 use crate::gpu::{GpuError, Present};
-use crate::keys::{kempston_bit, quits, spectrum_key};
-use crate::launch::Session;
+use crate::keys::{c64_key, kempston_bit, quits, spectrum_key};
+use crate::launch::{MachineKind, Session};
 use crate::open_file::{self, MenuBar, OpenKind, PictureSize, SaveKind, OPEN_ID};
 use crate::pace::{due_ticks, CATCH_UP, DISPLAY_FRAME, TURBO_SLICE};
 use crate::speaker::Speaker;
@@ -19,6 +19,7 @@ use winit::window::{Window, WindowId};
 
 pub fn run(session: Session) -> Result<(), GpuError> {
     let model_128 = session.model_128;
+    let c64 = session.machine == MachineKind::C64;
     let presenter = presenter_from(session)?;
     let event_loop = EventLoop::<muda::MenuEvent>::with_user_event()
         .build()
@@ -27,7 +28,7 @@ pub fn run(session: Session) -> Result<(), GpuError> {
     muda::MenuEvent::set_event_handler(Some(move |event| {
         let _ = proxy.send_event(event);
     }));
-    let mut app = App::new(presenter, model_128);
+    let mut app = App::new(presenter, model_128, c64);
     event_loop.run_app(&mut app).map_err(show_error)
 }
 
@@ -40,6 +41,7 @@ struct App {
     percent: Option<u32>,
     applying: bool,
     model_128: bool,
+    c64: bool,
     modifiers: Modifiers,
     menu: Option<MenuBar>,
     picking: bool,
@@ -54,7 +56,7 @@ struct SurfaceState {
 }
 
 impl App {
-    fn new(presenter: Presenter, model_128: bool) -> Self {
+    fn new(presenter: Presenter, model_128: bool, c64: bool) -> Self {
         Self {
             window: None,
             state: None,
@@ -64,6 +66,7 @@ impl App {
             percent: None,
             applying: false,
             model_128,
+            c64,
             modifiers: Modifiers::default(),
             menu: None,
             picking: false,
@@ -232,7 +235,7 @@ impl App {
             write_named("8bitemu.sna", self.presenter.snapshot());
             return;
         }
-        if stick_key(self, code, down) {
+        if !self.c64 && stick_key(self, code, down) {
             return;
         }
         hold_key_target(self, code, down);
@@ -491,6 +494,13 @@ fn prepared_save(
 }
 
 fn hold_key_target(app: &mut App, code: KeyCode, down: bool) {
+    if app.c64 {
+        let Some((row, col)) = c64_key(code) else {
+            return;
+        };
+        app.presenter.set_c64_key(row, col, down);
+        return;
+    }
     let Some((row, mask)) = spectrum_key(code) else {
         return;
     };
@@ -539,6 +549,15 @@ fn look_from_code(code: KeyCode) -> Option<Look> {
 
 fn presenter_from(session: Session) -> Result<Presenter, GpuError> {
     let mut presenter = Presenter::new(PresentPace::Fixed60Hz);
+    if session.machine == MachineKind::C64 {
+        let kernal = session.kernal.ok_or_else(|| missing_rom("kernal"))?;
+        let basic = session.basic.ok_or_else(|| missing_rom("basic"))?;
+        let chargen = session.chargen.ok_or_else(|| missing_rom("chargen"))?;
+        presenter
+            .load_c64_roms(&kernal, &basic, &chargen)
+            .map_err(show_error)?;
+        return Ok(presenter);
+    }
     if let Some(rom) = session.rom {
         presenter
             .load_rom(&rom, session.model_128)
@@ -551,6 +570,10 @@ fn presenter_from(session: Session) -> Result<Presenter, GpuError> {
         presenter.load_sna(&sna).map_err(show_error)?;
     }
     Ok(presenter)
+}
+
+fn missing_rom(name: &str) -> GpuError {
+    GpuError::new(format!("missing C64 {name} ROM"))
 }
 
 fn surface_config(width: u32, height: u32) -> wgpu::SurfaceConfiguration {

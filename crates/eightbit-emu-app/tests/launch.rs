@@ -1,4 +1,4 @@
-use eightbit_emu_app::{kempston_bit, parse_launch, quits, spectrum_key};
+use eightbit_emu_app::{c64_key, kempston_bit, parse_launch, quits, spectrum_key, MachineKind};
 use winit::keyboard::KeyCode;
 
 #[test]
@@ -20,6 +20,16 @@ fn flags_select_the_model_and_the_image_paths() {
     assert_eq!(launch.tap.as_deref(), Some("game.tap"));
     let narrow = parse_launch(&args(&["--model", "48"])).expect("48");
     assert!(!narrow.model_128);
+}
+
+#[test]
+fn c64_machine_defaults_rom_paths() {
+    let launch = parse_launch(&args(&["--machine", "c64"])).expect("c64");
+    assert_eq!(launch.machine, MachineKind::C64);
+    assert_eq!(launch.kernal.as_deref(), Some("roms/c64-kernal.rom"));
+    assert_eq!(launch.basic.as_deref(), Some("roms/c64-basic.rom"));
+    assert_eq!(launch.chargen.as_deref(), Some("roms/c64-chargen.rom"));
+    assert_eq!(c64_key(KeyCode::KeyA), Some((1, 2)));
 }
 
 #[test]

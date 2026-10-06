@@ -1,6 +1,6 @@
 # 8bitEmu
 
-Cross-platform Spectrum and C64 player. With no arguments the window runs a small Z80 program in 48K RAM: blue border, three bright lines, and a cell that steps through the ink colors. Pass a ROM or an SNA the user already has to boot a 48K or basic 128K Spectrum. A TAP or TZX plays through the ear bit. A booted 48K machine types `LOAD ""`. A booted 128K machine presses Enter for Tape Loader. The picture fits the window, or snaps to 125%, 150%, 175%, and 200%. The border changes with the beam, so a load is striped. No ROM is included.
+Cross-platform Spectrum and C64 player. With no arguments the window runs a small Z80 program in 48K RAM: blue border, three bright lines, and a cell that steps through the ink colors. Pass a ROM or an SNA the user already has to boot a 48K or basic 128K Spectrum. A TAP or TZX plays through the ear bit. A booted 48K machine types `LOAD ""`. A booted 128K machine presses Enter for Tape Loader. `--machine c64` boots a Commodore 64 from Open ROMs in `roms/c64-*.rom` (or `--kernal` / `--basic` / `--chargen`). The C64 shows VIC text mode with the Colodore palette and a CIA keyboard. The picture fits the window, or snaps to 125%, 150%, 175%, and 200%. No ROM is included in git.
 
 ```
 cargo test
@@ -11,6 +11,7 @@ cargo run -p eightbit-emu-app -- --model 128 --rom image.rom
 cargo run -p eightbit-emu-app -- --rom image.rom --sna game.sna
 cargo run -p eightbit-emu-app -- --rom image.rom --tap game.tap
 cargo run -p eightbit-emu-app -- --rom image.rom --tzx game.tzx
+cargo run -p eightbit-emu-app -- --machine c64
 ```
 
 File → Open… chooses a `.rom`, `.sna`, `.tap`, or `.tzx`. Command-O on macOS and Ctrl-O elsewhere open the same dialog. A tape opened on a booted 48K machine types `LOAD ""`. On 128K it presses Enter for Tape Loader. The tape stays parked until that loader is reading the ear, then keeps playing through the leader. File → Save Snapshot… writes an `.sna`. Save Tape as TAP… and Save Tape as TZX… write a standard-speed recording. Command-S, Command-Shift-T, and Command-Shift-Z do the same (Ctrl on the other platforms). View sets Fit, 125%, 150%, 175%, or 200%. The picture stays at Spectrum speed, including on a faster display. A tape finishes in a few seconds by default. Sound → Loading sound, and F4, turn the border tone on and load in real time. The loading picture stays on screen either way. The game is heard when the tape stops.
@@ -41,3 +42,7 @@ SHA1 sums, as listed on the [Sinclair ROM images](https://sinclair.wiki.zxnet.co
 - `128-1.rom` `80080644289ed93d71a1103992a154cc9802b2fa`
 
 The +2A and +3 images in that archive are not for this machine. A game snapshot is a separate copyright from the system ROM.
+
+## Commodore 64 ROM
+
+Use the clean-room [Open ROMs](https://github.com/MEGA65/open-roms) set (also Debian `open-roms`). See `roms/README.md` for download links, expected names (`c64-kernal.rom`, `c64-basic.rom`, `c64-chargen.rom`), and SHA1 sums. Commodore stock dumps stay out of the repository.

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.0 — 2026-10-06
+
+- Boot a C64 with `--machine c64` from Open ROMs in `roms/c64-*.rom`. VIC text mode, Colodore colours, and the CIA keyboard run. SID, sprites, and tape wait for a later pass.
+
 ## 0.8.14 — 2026-10-06
 
 - The product is 8bitEmu. Spectrum today, C64 next, and room for other 8-bit machines.

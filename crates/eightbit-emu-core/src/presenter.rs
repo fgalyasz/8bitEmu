@@ -1,3 +1,4 @@
+use crate::c64;
 use crate::cadence::{PresentPace, source_index};
 use crate::error::CoreError;
 use crate::frame::Frame;
@@ -6,6 +7,11 @@ use crate::machine::Machine;
 use crate::tape::{self, KeyHold};
 use crate::temporal::{Blend, TemporalHistory};
 
+enum Host {
+    Spectrum(Machine),
+    C64(c64::Machine),
+}
+
 pub struct Presenter {
     pace: PresentPace,
     look: Look,
@@ -13,7 +19,7 @@ pub struct Presenter {
     shown: Option<u64>,
     history: TemporalHistory,
     frame: Option<Frame>,
-    machine: Machine,
+    host: Host,
     prompt: Vec<Vec<KeyHold>>,
     prompt_at: Option<usize>,
     holds: Vec<KeyHold>,
@@ -28,7 +34,7 @@ impl Presenter {
             shown: None,
             history: TemporalHistory::default(),
             frame: None,
-            machine: Machine::new(),
+            host: Host::Spectrum(Machine::new()),
             prompt: Vec::new(),
             prompt_at: None,
             holds: Vec::new(),
@@ -43,80 +49,147 @@ impl Presenter {
         self.look = look;
     }
 
+    pub fn is_c64(&self) -> bool {
+        matches!(self.host, Host::C64(_))
+    }
+
     pub fn load_rom(&mut self, bytes: &[u8], model_128: bool) -> Result<(), CoreError> {
-        self.machine.load_rom(bytes, model_128)?;
+        self.ensure_spectrum().load_rom(bytes, model_128)?;
         self.arm_prompt();
         Ok(())
     }
 
+    pub fn load_c64_roms(
+        &mut self,
+        kernal: &[u8],
+        basic: &[u8],
+        chargen: &[u8],
+    ) -> Result<(), CoreError> {
+        let mut machine = c64::Machine::new();
+        machine.load_roms(kernal, basic, chargen)?;
+        self.host = Host::C64(machine);
+        self.prompt.clear();
+        self.prompt_at = None;
+        self.holds.clear();
+        self.shown = None;
+        Ok(())
+    }
+
     pub fn load_sna(&mut self, bytes: &[u8]) -> Result<(), CoreError> {
-        self.machine.load_sna(bytes)?;
+        self.ensure_spectrum().load_sna(bytes)?;
         self.arm_prompt();
         Ok(())
     }
 
     pub fn load_tape(&mut self, bytes: &[u8]) -> Result<(), CoreError> {
-        self.machine.load_tape(bytes)?;
+        self.ensure_spectrum().load_tape(bytes)?;
         self.arm_prompt();
         Ok(())
     }
 
     pub fn resume_tape(&mut self) {
-        self.machine.resume_tape();
+        if let Host::Spectrum(machine) = &mut self.host {
+            machine.resume_tape();
+        }
     }
 
     pub fn snapshot(&self) -> Result<Vec<u8>, CoreError> {
-        self.machine.snapshot()
+        match &self.host {
+            Host::Spectrum(machine) => machine.snapshot(),
+            Host::C64(_) => Err(CoreError::Unsupported {
+                kind: "snapshot",
+                id: 0,
+            }),
+        }
     }
 
     pub fn take_tap(&mut self) -> Option<Vec<u8>> {
-        self.machine.take_tap()
+        match &mut self.host {
+            Host::Spectrum(machine) => machine.take_tap(),
+            Host::C64(_) => None,
+        }
     }
 
     pub fn tap_bytes(&self) -> Option<Vec<u8>> {
-        self.machine.tap_bytes()
+        match &self.host {
+            Host::Spectrum(machine) => machine.tap_bytes(),
+            Host::C64(_) => None,
+        }
     }
 
     pub fn tzx_bytes(&self) -> Option<Vec<u8>> {
-        self.machine.tzx_bytes()
+        match &self.host {
+            Host::Spectrum(machine) => machine.tzx_bytes(),
+            Host::C64(_) => None,
+        }
     }
 
     pub fn set_stick(&mut self, mask: u8, down: bool) {
-        self.machine.set_stick(mask, down);
+        if let Host::Spectrum(machine) = &mut self.host {
+            machine.set_stick(mask, down);
+        }
     }
 
     pub fn set_key(&mut self, row: u8, mask: u8, down: bool) {
-        self.machine.set_key(row, mask, down);
+        if let Host::Spectrum(machine) = &mut self.host {
+            machine.set_key(row, mask, down);
+        }
+    }
+
+    pub fn set_c64_key(&mut self, row: u8, col: u8, down: bool) {
+        if let Host::C64(machine) = &mut self.host {
+            machine.set_key(row, col, down);
+        }
     }
 
     pub fn is_booted(&self) -> bool {
-        self.machine.is_booted()
+        match &self.host {
+            Host::Spectrum(machine) => machine.is_booted(),
+            Host::C64(machine) => machine.is_booted(),
+        }
     }
 
     pub fn reset(&mut self) {
-        self.machine.reset();
+        match &mut self.host {
+            Host::Spectrum(machine) => machine.reset(),
+            Host::C64(machine) => machine.reset(),
+        }
         self.shown = None;
         self.arm_prompt();
     }
 
     pub fn take_audio(&mut self) -> Vec<f32> {
-        self.machine.take_audio()
+        match &mut self.host {
+            Host::Spectrum(machine) => machine.take_audio(),
+            Host::C64(machine) => machine.take_audio(),
+        }
     }
 
     pub fn set_loading_sound(&mut self, on: bool) {
-        self.machine.set_loading_sound(on);
+        if let Host::Spectrum(machine) = &mut self.host {
+            machine.set_loading_sound(on);
+        }
     }
 
     pub fn loading_sound(&self) -> bool {
-        self.machine.loading_sound()
+        match &self.host {
+            Host::Spectrum(machine) => machine.loading_sound(),
+            Host::C64(_) => false,
+        }
     }
 
     pub fn hears_loading(&self) -> bool {
-        self.machine.hears_loading()
+        match &self.host {
+            Host::Spectrum(machine) => machine.hears_loading(),
+            Host::C64(_) => false,
+        }
     }
 
     pub fn tape_edge(&self) -> usize {
-        self.machine.tape_edge()
+        match &self.host {
+            Host::Spectrum(machine) => machine.tape_edge(),
+            Host::C64(_) => 0,
+        }
     }
 
     pub fn on_display_tick(&mut self) -> Result<&Frame, CoreError> {
@@ -134,18 +207,57 @@ impl Presenter {
     }
 
     pub fn rush_cpu(&mut self) -> Result<bool, CoreError> {
-        if self.prompt_at.is_some() || self.machine.turbo_budget() == 0 {
+        if self.prompt_at.is_some() || self.turbo_budget() == 0 {
             return Ok(false);
         }
-        self.machine.advance()?;
+        self.advance_host()?;
         Ok(true)
     }
 
     pub fn paint_latest(&mut self) -> Result<Frame, CoreError> {
-        let mut frame = self.machine.paint()?;
+        let mut frame = self.paint_host()?;
         apply_history(&mut frame, &mut self.history)?;
         self.frame = Some(frame.clone());
         Ok(frame)
+    }
+
+    fn turbo_budget(&self) -> u32 {
+        match &self.host {
+            Host::Spectrum(machine) => machine.turbo_budget(),
+            Host::C64(_) => 0,
+        }
+    }
+
+    fn advance_host(&mut self) -> Result<(), CoreError> {
+        match &mut self.host {
+            Host::Spectrum(machine) => machine.advance(),
+            Host::C64(machine) => machine.advance(),
+        }
+    }
+
+    fn paint_host(&self) -> Result<Frame, CoreError> {
+        match &self.host {
+            Host::Spectrum(machine) => machine.paint(),
+            Host::C64(machine) => machine.paint(),
+        }
+    }
+
+    fn frame_host(&mut self) -> Result<Frame, CoreError> {
+        match &mut self.host {
+            Host::Spectrum(machine) => machine.frame(),
+            Host::C64(machine) => machine.frame(),
+        }
+    }
+
+    fn ensure_spectrum(&mut self) -> &mut Machine {
+        if !matches!(self.host, Host::Spectrum(_)) {
+            self.host = Host::Spectrum(Machine::new());
+            self.shown = None;
+        }
+        match &mut self.host {
+            Host::Spectrum(machine) => machine,
+            Host::C64(_) => unreachable!(),
+        }
     }
 
     fn ensure_source(&mut self, source: u64) -> Result<(), CoreError> {
@@ -157,7 +269,7 @@ impl Presenter {
 
     fn store_source(&mut self, source: u64) -> Result<(), CoreError> {
         self.apply_prompt();
-        let mut frame = self.machine.frame()?;
+        let mut frame = self.frame_host()?;
         apply_history(&mut frame, &mut self.history)?;
         self.shown = Some(source);
         self.frame = Some(frame);
@@ -172,8 +284,13 @@ impl Presenter {
 impl Presenter {
     fn arm_prompt(&mut self) {
         self.release_holds();
-        if self.machine.is_booted() && self.machine.has_tape() {
-            self.prompt = tape::load_prompt(self.machine.is_128());
+        let Host::Spectrum(machine) = &self.host else {
+            self.prompt.clear();
+            self.prompt_at = None;
+            return;
+        };
+        if machine.is_booted() && machine.has_tape() {
+            self.prompt = tape::load_prompt(machine.is_128());
             self.prompt_at = Some(0);
             return;
         }
@@ -198,7 +315,7 @@ impl Presenter {
     fn press_holds(&mut self, holds: &[KeyHold]) {
         let mut index = 0;
         while index < holds.len() {
-            self.machine.set_key(holds[index].row, holds[index].mask, true);
+            self.set_key(holds[index].row, holds[index].mask, true);
             index += 1;
         }
         self.holds = holds.to_vec();
@@ -207,7 +324,7 @@ impl Presenter {
     fn release_holds(&mut self) {
         let mut index = 0;
         while index < self.holds.len() {
-            self.machine.set_key(self.holds[index].row, self.holds[index].mask, false);
+            self.set_key(self.holds[index].row, self.holds[index].mask, false);
             index += 1;
         }
         self.holds.clear();

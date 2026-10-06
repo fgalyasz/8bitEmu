@@ -64,6 +64,110 @@ pub fn compose(content: &Content) -> Result<Frame, CoreError> {
     Ok(frame)
 }
 
+pub fn frame_from_indexes(
+    width: u16,
+    height: u16,
+    border_px: u16,
+    border: &[u8],
+    indexes: &[u8],
+    palette: PaletteKind,
+) -> Result<Frame, CoreError> {
+    check_size(width, height)?;
+    check_index_plane(width, height, indexes)?;
+    check_border_plane(height, border_px, border)?;
+    Ok(expand_index_border(width, height, border_px, border, indexes, palette))
+}
+
+fn check_index_plane(width: u16, height: u16, indexes: &[u8]) -> Result<(), CoreError> {
+    let expected = usize::from(width) * usize::from(height);
+    if indexes.len() != expected {
+        return Err(CoreError::BitmapLength {
+            expected,
+            actual: indexes.len(),
+        });
+    }
+    let mut index = 0;
+    while index < indexes.len() {
+        check_color(indexes[index])?;
+        index += 1;
+    }
+    Ok(())
+}
+
+fn check_border_plane(height: u16, border_px: u16, border: &[u8]) -> Result<(), CoreError> {
+    let expected = usize::from(height + border_px * 2);
+    if border.len() != expected {
+        return Err(CoreError::BorderLength {
+            expected,
+            actual: border.len(),
+        });
+    }
+    let mut index = 0;
+    while index < border.len() {
+        check_color(border[index])?;
+        index += 1;
+    }
+    Ok(())
+}
+
+fn expand_index_border(
+    width: u16,
+    height: u16,
+    border_px: u16,
+    border: &[u8],
+    indexes: &[u8],
+    palette: PaletteKind,
+) -> Frame {
+    let (out_w, out_h) = presented_size(width, height, border_px);
+    let mut frame = empty_frame(out_w, out_h, palette);
+    let mut y = 0u16;
+    while y < out_h {
+        paint_index_row(&mut frame, width, height, border_px, border, indexes, y);
+        y += 1;
+    }
+    frame.previous = frame.index.clone();
+    frame
+}
+
+fn paint_index_row(
+    frame: &mut Frame,
+    width: u16,
+    height: u16,
+    border_px: u16,
+    border: &[u8],
+    indexes: &[u8],
+    y: u16,
+) {
+    let mut x = 0u16;
+    while x < frame.width {
+        let offset = pixel_offset(frame.width, x, y);
+        if let Some(color) = index_at(width, height, border_px, indexes, x, y) {
+            frame.index[offset] = color;
+            frame.luma[offset] = u8::from(color != 0);
+        } else {
+            frame.index[offset] = border[usize::from(y)];
+            frame.luma[offset] = 0;
+        }
+        x += 1;
+    }
+}
+
+fn index_at(
+    width: u16,
+    height: u16,
+    border_px: u16,
+    indexes: &[u8],
+    x: u16,
+    y: u16,
+) -> Option<u8> {
+    let local_x = x.checked_sub(border_px)?;
+    let local_y = y.checked_sub(border_px)?;
+    if local_x >= width || local_y >= height {
+        return None;
+    }
+    Some(indexes[pixel_offset(width, local_x, local_y)])
+}
+
 pub fn attribute_index(attr: Attribute, bit: bool, flash_on: bool) -> u8 {
     let ink_on = if attr.flash && flash_on { !bit } else { bit };
     let color = if ink_on { attr.ink } else { attr.paper };

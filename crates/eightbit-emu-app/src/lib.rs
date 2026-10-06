@@ -7,8 +7,8 @@ mod speaker;
 mod window;
 
 pub use gpu::{GpuError, Present, fit_scale, render_frame};
-pub use keys::{kempston_bit, quits, spectrum_key};
-pub use launch::{Launch, Session, parse_launch};
+pub use keys::{c64_key, kempston_bit, quits, spectrum_key};
+pub use launch::{Launch, MachineKind, Session, parse_launch};
 pub use pace::due_ticks;
 pub use speaker::spread;
 pub use open_file::{
