@@ -28,3 +28,47 @@ SHA1 sums from https://sinclair.wiki.zxnet.co.uk/wiki/ROM_images :
 - `128-1.rom` `80080644289ed93d71a1103992a154cc9802b2fa`
 
 The +2A and +3 images in that archive are not for this machine yet.
+
+## Commodore 64
+
+Commodore's original KERNAL, BASIC, and character ROMs are still copyrighted.
+Do not put those dumps in the repo. Use the clean-room **Open ROMs** set instead
+(LGPL-3.0 / GPL-3.0). Upstream:
+
+https://github.com/MEGA65/open-roms
+
+Debian ships the same project as `open-roms` in main:
+
+https://packages.debian.org/stable/otherosfs/open-roms
+
+Latest orig tarball (sid):
+
+https://deb.debian.org/debian/pool/main/o/open-roms/open-roms_0.0~git20260509.93b6a24.orig.tar.xz
+
+After install, the package places:
+
+- `/usr/share/open-roms/C64/kernal`
+- `/usr/share/open-roms/C64/basic`
+- `/usr/share/open-roms/C64/chargen`
+
+Or copy the matched generic pair from upstream `bin/`:
+
+- `kernal_generic.rom` — 8192 bytes
+- `basic_generic.rom` — 8192 bytes
+- `chargen_openroms.rom` — 4096 bytes
+
+Expected files here (rename as needed):
+
+- `kernal.rom` — 8192 bytes
+- `basic.rom` — 8192 bytes
+- `chargen.rom` — 4096 bytes
+
+SHA1 sums from MEGA65/open-roms `master` `bin/` (generic set):
+
+- `kernal_generic.rom` `2ecf1bf1553bf77ba8a007a18a1a7c291d215b33`
+- `basic_generic.rom` `4468852d4fde3394ca750f45d1c83914e218dac5`
+- `chargen_openroms.rom` `466e399a5e994b52f6cef6019b32b9f6b504cd14`
+
+Use `kernal_generic` with `basic_generic` from the same build. Do not mix with
+Commodore dumps or Ultimate64-specific images. Open ROMs is not bit-identical to
+the stock C64; some software may behave differently.
