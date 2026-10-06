@@ -27,15 +27,16 @@ No ROM is shipped. Amstrad allows these images to be used with an emulator if th
 
 Debian packages them as [`spectrum-roms`](https://packages.debian.org/stable/otherosfs/spectrum-roms) in non-free. The upstream archive is [`spectrum-roms_20081224.orig.tar.gz`](https://deb.debian.org/debian/pool/non-free/s/spectrum-roms/spectrum-roms_20081224.orig.tar.gz).
 
-`48.rom` is 16384 bytes and boots the 48K machine. For 128K, join the editor and the 48K BASIC half in that order. The result is 32768 bytes:
+Put the 48K image here as `spectrum-48.rom` (16384 bytes). For 128K, join the editor and the 48K BASIC half in that order into `spectrum-128.rom` (32768 bytes):
 
 ```
-cat 128-0.rom 128-1.rom > 128.rom
+cat 128-0.rom 128-1.rom > spectrum-128.rom
+cp 48.rom spectrum-48.rom
 ```
 
 SHA1 sums, as listed on the [Sinclair ROM images](https://sinclair.wiki.zxnet.co.uk/wiki/ROM_images) page:
 
-- `48.rom` `5ea7c2b824672e914525d1d5c419d71b84a426a2`
+- `48.rom` / `spectrum-48.rom` `5ea7c2b824672e914525d1d5c419d71b84a426a2`
 - `128-0.rom` `4f4b11ec22326280bdb96e3baf9db4b4cb1d02c5`
 - `128-1.rom` `80080644289ed93d71a1103992a154cc9802b2fa`
 
