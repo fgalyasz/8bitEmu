@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.11 — 2026-10-06
+
+- C64 sprites respect VIC priority: lower sprite index draws in front.
+
 ## 0.9.10 — 2026-10-06
 
 - C64 SID audio reaches the speaker. Multiplexed multicolor sprites keep `$D025`/`$D026` and the sprite color from the latch line (Monty’s gray figure).

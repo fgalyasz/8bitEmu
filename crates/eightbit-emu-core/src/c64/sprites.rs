@@ -9,10 +9,11 @@ pub fn paint(map: &Map, pixels: &mut [u8]) {
         paint_live(map, pixels);
         return;
     }
-    let mut index = 0usize;
-    while index < map.sprite_draws.len() {
+    // VIC: lower sprite index is in front — paint high indices first.
+    let mut index = map.sprite_draws.len();
+    while index > 0 {
+        index -= 1;
         blit_draw(map, pixels, &map.sprite_draws[index]);
-        index += 1;
     }
 }
 
@@ -59,12 +60,12 @@ fn capture(map: &Map, index: u8) -> SpriteDraw {
 
 fn paint_live(map: &Map, pixels: &mut [u8]) {
     let enable = map.vic[0x15];
-    let mut index = 0u8;
-    while index < 8 {
+    let mut index = 8u8;
+    while index > 0 {
+        index -= 1;
         if enable & (1 << index) != 0 {
             blit_draw(map, pixels, &capture(map, index));
         }
-        index += 1;
     }
 }
 

@@ -86,3 +86,15 @@ fn blank_machine() -> C64Machine {
     machine.load_roms(&kernal, &basic, &chargen).expect("roms");
     machine
 }
+
+#[test]
+fn lower_sprite_index_paints_in_front() {
+    let mut machine = blank_machine();
+    fill_sprite(&mut machine, 0x80, 0xFF);
+    fill_sprite(&mut machine, 0x81, 0xFF);
+    place_sprite(&mut machine, 0, 24, 50, 0x80, 0x0A);
+    place_sprite(&mut machine, 1, 24, 50, 0x81, 0x01);
+    machine.poke_io(0xD015, 0x03);
+    let frame = machine.paint().expect("paint");
+    assert_eq!(content_pixel(&frame, 0, 0), 0x0A);
+}
