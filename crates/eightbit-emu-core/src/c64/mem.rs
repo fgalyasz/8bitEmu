@@ -19,6 +19,7 @@ pub struct Map {
     port: u8,
     pub vic: [u8; 64],
     pub sid: Sid,
+    vic_irr: u8,
     raster_y: u16,
     line_cycle: u32,
     pub cia1: Cia1,
@@ -87,6 +88,7 @@ impl Map {
             port: 0x37,
             vic: [0; 64],
             sid: Sid::default(),
+            vic_irr: 0,
             raster_y: 0,
             line_cycle: 0,
             cia1: Cia1::default(),
@@ -125,6 +127,31 @@ impl Map {
         self.ram[usize::from(address)] = value;
     }
 
+    pub fn vic_bank(&self) -> u16 {
+        u16::from((!self.cia2.pra) & 0x03) << 14
+    }
+
+    pub fn video_matrix(&self) -> u16 {
+        self.vic_bank() + (u16::from(self.vic[0x18] >> 4) << 10)
+    }
+
+    pub fn bitmap_base(&self) -> u16 {
+        self.vic_bank() + if self.vic[0x18] & 0x08 != 0 {
+            0x2000
+        } else {
+            0
+        }
+    }
+
+    pub fn glyph_byte(&self, code: u8, line: u8) -> u8 {
+        let offset = u16::from(code) * 8 + u16::from(line);
+        let base = charset_base(self);
+        if charset_is_rom(self, base) {
+            return self.chargen_byte(usize::from(offset));
+        }
+        self.ram_byte(base + offset)
+    }
+
     pub fn set_key(&mut self, row: u8, col: u8, down: bool) {
         if row < 8 && col < 8 {
             self.cia1.keys[usize::from(row)][usize::from(col)] = down;
@@ -132,7 +159,9 @@ impl Map {
     }
 
     pub fn irq_line(&self) -> bool {
-        self.cia1.icr & 0x80 != 0
+        let cia = self.cia1.icr & 0x80 != 0;
+        let vic = self.vic_irr & self.vic[0x1A] & 0x0F != 0;
+        cia || vic
     }
 
     pub fn tick(&mut self, cycles: u32) {
@@ -177,7 +206,32 @@ fn advance_raster(map: &mut Map, cycles: u32) {
         if map.raster_y >= RASTER_LINES {
             map.raster_y = 0;
         }
+        maybe_raster_irq(map);
     }
+}
+
+fn maybe_raster_irq(map: &mut Map) {
+    if map.raster_y != raster_compare(map) {
+        return;
+    }
+    map.vic_irr |= 0x01;
+}
+
+fn raster_compare(map: &Map) -> u16 {
+    (u16::from(map.vic[0x11] >> 7) << 8) | u16::from(map.vic[0x12])
+}
+
+fn charset_base(map: &Map) -> u16 {
+    map.vic_bank() + (u16::from((map.vic[0x18] >> 1) & 0x07) << 11)
+}
+
+fn charset_is_rom(map: &Map, base: u16) -> bool {
+    let bank = map.vic_bank();
+    if bank != 0x0000 && bank != 0x8000 {
+        return false;
+    }
+    let offset = base - bank;
+    offset == 0x1000 || offset == 0x1800
 }
 
 fn tick_timer_a(cia: &mut Cia1, cycles: u32) {
@@ -231,7 +285,7 @@ fn read_io(map: &mut Map, address: u16) -> u8 {
 
 fn write_io(map: &mut Map, address: u16, value: u8) {
     match address {
-        0xD000..=0xD3FF => map.vic[usize::from(address & 0x3F)] = value,
+        0xD000..=0xD3FF => write_vic(map, address, value),
         0xD400..=0xD7FF => map.sid.write(address, value),
         0xD800..=0xDBFF => map.color[usize::from(address - 0xD800)] = value & 0x0F,
         0xDC00..=0xDCFF => write_cia1(map, address, value),
@@ -240,12 +294,28 @@ fn write_io(map: &mut Map, address: u16, value: u8) {
     }
 }
 
+fn write_vic(map: &mut Map, address: u16, value: u8) {
+    let reg = address & 0x3F;
+    if reg == 0x19 {
+        map.vic_irr &= !value;
+        return;
+    }
+    map.vic[usize::from(reg)] = value;
+}
+
 fn read_vic(map: &Map, address: u16) -> u8 {
     match address & 0x3F {
         0x11 => (map.vic[0x11] & 0x7F) | (((map.raster_y >> 8) as u8) << 7),
         0x12 => map.raster_y as u8,
+        0x19 => read_vic_irr(map),
         reg => map.vic[usize::from(reg)],
     }
+}
+
+fn read_vic_irr(map: &Map) -> u8 {
+    let pending = map.vic_irr & map.vic[0x1A] & 0x0F;
+    let bit7 = if pending != 0 { 0x80 } else { 0 };
+    map.vic_irr | bit7
 }
 
 fn check_len(name: &'static str, bytes: &[u8], expected: usize) -> Result<(), CoreError> {

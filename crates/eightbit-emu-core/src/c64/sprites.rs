@@ -180,8 +180,7 @@ fn sprite_x(map: &Map, index: u8) -> i32 {
 
 fn sprite_bytes(map: &Map, index: u8) -> [u8; 63] {
     let pointer = map.ram_byte(pointer_address(map, index));
-    let base = vic_bank(map) + u16::from(pointer) * 64;
-    fill_sprite(map, base)
+    fill_sprite(map, sprite_data_base(map, pointer))
 }
 
 fn fill_sprite(map: &Map, base: u16) -> [u8; 63] {
@@ -195,13 +194,9 @@ fn fill_sprite(map: &Map, base: u16) -> [u8; 63] {
 }
 
 fn pointer_address(map: &Map, index: u8) -> u16 {
-    screen_base(map) + 0x03F8 + u16::from(index)
+    map.video_matrix() + 0x03F8 + u16::from(index)
 }
 
-fn screen_base(map: &Map) -> u16 {
-    vic_bank(map) + (u16::from(map.vic[0x18] >> 4) << 10)
-}
-
-fn vic_bank(map: &Map) -> u16 {
-    u16::from((!map.cia2.pra) & 0x03) << 14
+fn sprite_data_base(map: &Map, pointer: u8) -> u16 {
+    map.vic_bank() + u16::from(pointer) * 64
 }

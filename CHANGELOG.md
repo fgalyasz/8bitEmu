@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.8 — 2026-10-06
+
+- C64 VIC bitmap modes paint, and the raster compare IRQ fires. Bitmap title screens no longer look like letter soup or hang waiting for `$D019`.
+
 ## 0.9.7 — 2026-10-06
 
 - C64 hardware sprites draw over the text screen: hires, X/Y expand, and multicolor.
