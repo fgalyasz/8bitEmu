@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.2 — 2026-10-06
+
+- C64 `SBC` no longer flips carry before the add. Open ROMs boot text reads correctly (`READY.`, not a shifted garble).
+
 ## 0.9.1 — 2026-10-06
 
 - The C64 cold start finishes. The VIC raster line and CIA-1 Timer A run, so Open ROMs can leave the sync wait and show the boot banner.

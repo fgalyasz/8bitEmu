@@ -231,15 +231,11 @@ fn sbc(cpu: &mut Cpu, value: u8) {
 }
 
 fn sbc_binary(cpu: &mut Cpu, value: u8) {
-    let carry = cpu.status & C != 0;
-    cpu.status = set_bit(cpu.status, C, !carry);
-    adc_binary(cpu, value ^ 0xFF);
+    adc_binary(cpu, !value);
 }
 
 fn sbc_decimal(cpu: &mut Cpu, value: u8) {
-    let carry = cpu.status & C != 0;
-    cpu.status = set_bit(cpu.status, C, !carry);
-    adc_decimal(cpu, value ^ 0xFF);
+    adc_decimal(cpu, !value);
 }
 
 fn compare(cpu: &mut Cpu, reg: u8, value: u8) {

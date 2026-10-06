@@ -107,3 +107,34 @@ fn open_roms() -> Option<(Vec<u8>, Vec<u8>, Vec<u8>)> {
     let chargen = fs::read(root.join("c64-chargen.rom")).ok()?;
     Some((kernal, basic, chargen))
 }
+
+
+#[test]
+fn open_roms_boot_contains_ready_screen_codes() {
+    let Some((kernal, basic, chargen)) = open_roms() else { return; };
+    let mut machine = C64Machine::new();
+    machine.load_roms(&kernal, &basic, &chargen).expect("roms");
+    let mut frame = 0;
+    while frame < 200 {
+        machine.frame().expect("frame");
+        frame += 1;
+    }
+    let ready = [18u8, 5, 1, 4, 25, 46];
+    let mut address = 0x0400u16;
+    while address + 6 <= 0x07E8 {
+        let mut i = 0u16;
+        let mut ok = true;
+        while i < 6 {
+            if machine.read(address + i) != ready[usize::from(i)] {
+                ok = false;
+                break;
+            }
+            i += 1;
+        }
+        if ok {
+            return;
+        }
+        address += 1;
+    }
+    panic!("READY. screen codes not found");
+}

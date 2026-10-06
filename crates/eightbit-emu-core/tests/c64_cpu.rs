@@ -141,3 +141,16 @@ fn every_legal_opcode_executes_or_rejects() {
         opcode += 1;
     }
 }
+
+
+#[test]
+fn sec_sbc_forty_from_ascii_a() {
+    let mut cpu = Cpu::default();
+    let mut bus = FakeBus::new();
+    bus.load(0, &[0x38, 0xA9, 0x41, 0xE9, 0x40]);
+    cpu.pc = 0;
+    step(&mut cpu, &mut bus).expect("sec");
+    step(&mut cpu, &mut bus).expect("lda");
+    step(&mut cpu, &mut bus).expect("sbc");
+    assert_eq!(cpu.a, 0x01);
+}
