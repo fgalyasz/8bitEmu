@@ -29,7 +29,7 @@ fn c64_machine_defaults_rom_paths() {
     assert_eq!(launch.kernal.as_deref(), Some("roms/c64-kernal.rom"));
     assert_eq!(launch.basic.as_deref(), Some("roms/c64-basic.rom"));
     assert_eq!(launch.chargen.as_deref(), Some("roms/c64-chargen.rom"));
-    assert_eq!(c64_key(KeyCode::KeyA), Some((1, 2)));
+    assert_eq!(c64_key(KeyCode::KeyA), Some((2, 1)));
 }
 
 #[test]

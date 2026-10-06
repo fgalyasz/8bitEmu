@@ -86,12 +86,11 @@ fn keyboard_clears_cia_bit() {
     // Write DDRA=$FF, PRA=!(1<<1)
     // Use raw map through CPU-less writes: need public poke for cia.
     // set_key(row,col) then read $DC01 with pra selecting col.
-    machine.set_key(1, 2, true); // row 1, col 2
-    // Write CIA via I/O: execute isn't available; use helper
-    poke_cia_select(&mut machine, 1 << 2);
+    machine.set_key(2, 1, true); // PRB bit 2, PRA bit 1 (letter A)
+    poke_cia_select(&mut machine, 1 << 1);
     let value = machine.read(0xDC01);
-    assert_eq!(value & (1 << 1), 0);
-    machine.set_key(1, 2, false);
+    assert_eq!(value & (1 << 2), 0);
+    machine.set_key(2, 1, false);
     let open = machine.read(0xDC01);
     assert_eq!(open, 0xFF);
 }
@@ -124,7 +123,7 @@ fn open_roms_runs_many_frames() {
         machine.frame().expect("frame");
         frame += 1;
     }
-    machine.set_key(1, 2, true);
+    machine.set_key(2, 1, true);
     machine.reset();
     assert!(machine.is_booted());
     assert!(machine.take_audio().is_empty());

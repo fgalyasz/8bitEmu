@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.3 — 2026-10-06
+
+- C64 keys follow the KERNAL matrix. Typing A no longer inserts R.
+
 ## 0.9.2 — 2026-10-06
 
 - C64 `SBC` no longer flips carry before the add. Open ROMs boot text reads correctly (`READY.`, not a shifted garble).
