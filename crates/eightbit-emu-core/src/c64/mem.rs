@@ -4,6 +4,8 @@ const RAM: usize = 65536;
 const BASIC_LEN: usize = 8192;
 const KERNAL_LEN: usize = 8192;
 const CHARGEN_LEN: usize = 4096;
+const LINE_CYCLES: u32 = 63;
+const RASTER_LINES: u16 = 312;
 
 pub struct Map {
     ram: Vec<u8>,
@@ -14,7 +16,9 @@ pub struct Map {
     ddr: u8,
     port: u8,
     pub vic: [u8; 64],
-    pub cia1: CiaPorts,
+    raster_y: u16,
+    line_cycle: u32,
+    pub cia1: Cia1,
     pub cia2: CiaPorts,
 }
 
@@ -24,7 +28,6 @@ pub struct CiaPorts {
     pub prb: u8,
     pub ddra: u8,
     pub ddrb: u8,
-    pub keys: [[bool; 8]; 8],
 }
 
 impl Default for CiaPorts {
@@ -34,7 +37,37 @@ impl Default for CiaPorts {
             prb: 0xFF,
             ddra: 0,
             ddrb: 0,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Cia1 {
+    pub pra: u8,
+    pub prb: u8,
+    pub ddra: u8,
+    pub ddrb: u8,
+    pub keys: [[bool; 8]; 8],
+    ta: u16,
+    ta_latch: u16,
+    cra: u8,
+    icr: u8,
+    icr_mask: u8,
+}
+
+impl Default for Cia1 {
+    fn default() -> Self {
+        Self {
+            pra: 0xFF,
+            prb: 0xFF,
+            ddra: 0,
+            ddrb: 0,
             keys: [[false; 8]; 8],
+            ta: 0,
+            ta_latch: 0,
+            cra: 0,
+            icr: 0,
+            icr_mask: 0,
         }
     }
 }
@@ -50,7 +83,9 @@ impl Map {
             ddr: 0x2F,
             port: 0x37,
             vic: [0; 64],
-            cia1: CiaPorts::default(),
+            raster_y: 0,
+            line_cycle: 0,
+            cia1: Cia1::default(),
             cia2: CiaPorts::default(),
         }
     }
@@ -92,6 +127,15 @@ impl Map {
         }
     }
 
+    pub fn irq_line(&self) -> bool {
+        self.cia1.icr & 0x80 != 0
+    }
+
+    pub fn tick(&mut self, cycles: u32) {
+        advance_raster(self, cycles);
+        tick_timer_a(&mut self.cia1, cycles);
+    }
+
     pub fn read(&mut self, address: u16) -> u8 {
         match address {
             0x0000 => self.ddr,
@@ -120,9 +164,58 @@ impl Map {
     }
 }
 
-fn read_io(map: &Map, address: u16) -> u8 {
+fn advance_raster(map: &mut Map, cycles: u32) {
+    map.line_cycle += cycles;
+    while map.line_cycle >= LINE_CYCLES {
+        map.line_cycle -= LINE_CYCLES;
+        map.raster_y += 1;
+        if map.raster_y >= RASTER_LINES {
+            map.raster_y = 0;
+        }
+    }
+}
+
+fn tick_timer_a(cia: &mut Cia1, cycles: u32) {
+    if cia.cra & 0x01 == 0 {
+        return;
+    }
+    let mut left = cycles;
+    while left > 0 {
+        if cia.ta == 0 {
+            underflow_timer_a(cia);
+            if cia.cra & 0x01 == 0 {
+                return;
+            }
+            left -= 1;
+            continue;
+        }
+        if u32::from(cia.ta) > left {
+            cia.ta -= left as u16;
+            return;
+        }
+        left -= u32::from(cia.ta);
+        cia.ta = 0;
+        underflow_timer_a(cia);
+        if cia.cra & 0x01 == 0 {
+            return;
+        }
+    }
+}
+
+fn underflow_timer_a(cia: &mut Cia1) {
+    cia.ta = cia.ta_latch;
+    cia.icr |= 0x01;
+    if cia.icr_mask & 0x01 != 0 {
+        cia.icr |= 0x80;
+    }
+    if cia.cra & 0x08 != 0 {
+        cia.cra &= !0x01;
+    }
+}
+
+fn read_io(map: &mut Map, address: u16) -> u8 {
     match address {
-        0xD000..=0xD3FF => map.vic[usize::from(address & 0x3F)],
+        0xD000..=0xD3FF => read_vic(map, address),
         0xD800..=0xDBFF => map.color[usize::from(address - 0xD800)] | 0xF0,
         0xDC00..=0xDCFF => read_cia1(map, address),
         0xDD00..=0xDDFF => read_cia2(map, address),
@@ -139,6 +232,15 @@ fn write_io(map: &mut Map, address: u16, value: u8) {
         _ => {}
     }
 }
+
+fn read_vic(map: &Map, address: u16) -> u8 {
+    match address & 0x3F {
+        0x11 => (map.vic[0x11] & 0x7F) | (((map.raster_y >> 8) as u8) << 7),
+        0x12 => map.raster_y as u8,
+        reg => map.vic[usize::from(reg)],
+    }
+}
+
 fn check_len(name: &'static str, bytes: &[u8], expected: usize) -> Result<(), CoreError> {
     if bytes.len() == expected {
         return Ok(());
@@ -190,12 +292,20 @@ fn char_visible(port: u8) -> bool {
     !charen(port) && (loram(port) || hiram(port))
 }
 
-fn read_cia1(map: &Map, address: u16) -> u8 {
+fn read_cia1(map: &mut Map, address: u16) -> u8 {
     match address & 0x0F {
         0x00 => map.cia1.pra | !map.cia1.ddra,
         0x01 => keyboard_prb(map),
         0x02 => map.cia1.ddra,
         0x03 => map.cia1.ddrb,
+        0x04 => map.cia1.ta as u8,
+        0x05 => (map.cia1.ta >> 8) as u8,
+        0x0D => {
+            let value = map.cia1.icr;
+            map.cia1.icr = 0;
+            value
+        }
+        0x0E => map.cia1.cra,
         _ => 0xFF,
     }
 }
@@ -206,7 +316,35 @@ fn write_cia1(map: &mut Map, address: u16, value: u8) {
         0x01 => map.cia1.prb = value,
         0x02 => map.cia1.ddra = value,
         0x03 => map.cia1.ddrb = value,
+        0x04 => {
+            map.cia1.ta_latch = (map.cia1.ta_latch & 0xFF00) | u16::from(value);
+        }
+        0x05 => {
+            map.cia1.ta_latch = (map.cia1.ta_latch & 0x00FF) | (u16::from(value) << 8);
+            if map.cia1.cra & 0x01 == 0 {
+                map.cia1.ta = map.cia1.ta_latch;
+            }
+        }
+        0x0D => write_icr_mask(&mut map.cia1, value),
+        0x0E => write_cra(&mut map.cia1, value),
         _ => {}
+    }
+}
+
+fn write_icr_mask(cia: &mut Cia1, value: u8) {
+    let bits = value & 0x1F;
+    if value & 0x80 != 0 {
+        cia.icr_mask |= bits;
+    } else {
+        cia.icr_mask &= !bits;
+    }
+}
+
+fn write_cra(cia: &mut Cia1, value: u8) {
+    let start = value & 0x01 != 0 && cia.cra & 0x01 == 0;
+    cia.cra = value;
+    if start {
+        cia.ta = cia.ta_latch;
     }
 }
 

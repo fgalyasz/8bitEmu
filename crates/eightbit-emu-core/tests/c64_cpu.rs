@@ -109,6 +109,7 @@ fn reset_and_interrupts_follow_the_vectors() {
     bus.mem[0xA000] = 0x40;
     reset(&mut cpu, &mut bus);
     assert_eq!(cpu.pc, 0x8000);
+    cpu.status &= !0x04;
     trigger_irq(&mut cpu);
     step(&mut cpu, &mut bus).expect("irq");
     assert_eq!(cpu.pc, 0x9000);

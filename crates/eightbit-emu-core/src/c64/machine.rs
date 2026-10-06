@@ -63,16 +63,26 @@ impl Machine {
         self.map.write(address, value);
     }
 
+    pub fn pc(&self) -> u16 {
+        self.cpu.pc
+    }
+
+    pub fn step_instruction(&mut self) -> Result<u32, CoreError> {
+        let used = cpu::step(&mut self.cpu, &mut self.map)?;
+        self.map.tick(used);
+        if self.map.irq_line() {
+            cpu::trigger_irq(&mut self.cpu);
+        }
+        Ok(used)
+    }
+
     pub fn frame(&mut self) -> Result<Frame, CoreError> {
         self.run_frame()?;
-        cpu::trigger_irq(&mut self.cpu);
         paint::frame(&self.map)
     }
 
     pub fn advance(&mut self) -> Result<(), CoreError> {
-        self.run_frame()?;
-        cpu::trigger_irq(&mut self.cpu);
-        Ok(())
+        self.run_frame()
     }
 
     pub fn paint(&self) -> Result<Frame, CoreError> {
@@ -90,7 +100,12 @@ impl Machine {
             if steps >= STEP_LIMIT {
                 return Err(CoreError::StepLimit);
             }
-            cycles += cpu::step(&mut self.cpu, &mut self.map)?;
+            let used = cpu::step(&mut self.cpu, &mut self.map)?;
+            self.map.tick(used);
+            if self.map.irq_line() {
+                cpu::trigger_irq(&mut self.cpu);
+            }
+            cycles += used;
             steps += 1;
         }
         Ok(())

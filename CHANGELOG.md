@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.1 — 2026-10-06
+
+- The C64 cold start finishes. The VIC raster line and CIA-1 Timer A run, so Open ROMs can leave the sync wait and show the boot banner.
+
 ## 0.9.0 — 2026-10-06
 
 - Boot a C64 with `--machine c64` from Open ROMs in `roms/c64-*.rom`. VIC text mode, Colodore colours, and the CIA keyboard run. SID, sprites, and tape wait for a later pass.
