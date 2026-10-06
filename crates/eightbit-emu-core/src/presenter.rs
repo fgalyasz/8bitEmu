@@ -87,6 +87,30 @@ impl Presenter {
         Ok(())
     }
 
+    pub fn load_prg(&mut self, bytes: &[u8]) -> Result<(), CoreError> {
+        self.c64_mut()?.load_prg(bytes)
+    }
+
+    pub fn warm_c64(&mut self, frames: u32) -> Result<(), CoreError> {
+        let machine = self.c64_mut()?;
+        let mut index = 0u32;
+        while index < frames {
+            machine.advance()?;
+            index += 1;
+        }
+        Ok(())
+    }
+
+    fn c64_mut(&mut self) -> Result<&mut c64::Machine, CoreError> {
+        match &mut self.host {
+            Host::C64(machine) => Ok(machine),
+            Host::Spectrum(_) => Err(CoreError::Unsupported {
+                kind: "prg",
+                id: 0,
+            }),
+        }
+    }
+
     pub fn resume_tape(&mut self) {
         if let Host::Spectrum(machine) = &mut self.host {
             machine.resume_tape();

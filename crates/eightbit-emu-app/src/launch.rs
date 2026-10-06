@@ -12,6 +12,7 @@ pub struct Launch {
     pub sna: Option<String>,
     pub tap: Option<String>,
     pub tzx: Option<String>,
+    pub prg: Option<String>,
     pub kernal: Option<String>,
     pub basic: Option<String>,
     pub chargen: Option<String>,
@@ -23,6 +24,7 @@ pub struct Session {
     pub rom: Option<Vec<u8>>,
     pub sna: Option<Vec<u8>>,
     pub tape: Option<Vec<u8>>,
+    pub prg: Option<Vec<u8>>,
     pub kernal: Option<Vec<u8>>,
     pub basic: Option<Vec<u8>>,
     pub chargen: Option<Vec<u8>>,
@@ -36,6 +38,7 @@ pub fn parse_launch(args: &[String]) -> Result<Launch, String> {
         sna: None,
         tap: None,
         tzx: None,
+        prg: None,
         kernal: None,
         basic: None,
         chargen: None,
@@ -44,8 +47,15 @@ pub fn parse_launch(args: &[String]) -> Result<Launch, String> {
     while index < args.len() {
         index = take_arg(&mut launch, args, index)?;
     }
+    apply_prg_machine(&mut launch);
     apply_c64_defaults(&mut launch);
     Ok(launch)
+}
+
+fn apply_prg_machine(launch: &mut Launch) {
+    if launch.prg.is_some() {
+        launch.machine = MachineKind::C64;
+    }
 }
 
 fn apply_c64_defaults(launch: &mut Launch) {
@@ -71,6 +81,7 @@ fn take_arg(launch: &mut Launch, args: &[String], index: usize) -> Result<usize,
         "--sna" => take_path(&mut launch.sna, args, index, "--sna"),
         "--tap" => take_path(&mut launch.tap, args, index, "--tap"),
         "--tzx" => take_path(&mut launch.tzx, args, index, "--tzx"),
+        "--prg" => take_path(&mut launch.prg, args, index, "--prg"),
         "--kernal" => take_path(&mut launch.kernal, args, index, "--kernal"),
         "--basic" => take_path(&mut launch.basic, args, index, "--basic"),
         "--chargen" => take_path(&mut launch.chargen, args, index, "--chargen"),

@@ -10,6 +10,7 @@ fn extensions_select_the_loader() {
     assert_eq!(open_kind("GAME.TAP"), Some(OpenKind::Tape));
     assert_eq!(open_kind("48.rom"), Some(OpenKind::Rom));
     assert_eq!(open_kind("snap.sna"), Some(OpenKind::Sna));
+    assert_eq!(open_kind("demo.prg"), Some(OpenKind::Prg));
     assert_eq!(open_kind("notes.txt"), None);
     assert_eq!(open_kind("noext"), None);
 }

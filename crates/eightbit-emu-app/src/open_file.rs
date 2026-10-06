@@ -35,6 +35,7 @@ pub enum OpenKind {
     Rom,
     Sna,
     Tape,
+    Prg,
 }
 
 pub fn open_kind(path: &str) -> Option<OpenKind> {
@@ -116,7 +117,8 @@ pub fn install_menu(window: &Window) -> Option<MenuBar> {
 pub fn pick_path(window: Option<&Window>) -> Option<PathBuf> {
     let dialog = FileDialog::new()
         .set_title("Open")
-        .add_filter("Spectrum", &["rom", "sna", "tap", "tzx"]);
+        .add_filter("Spectrum", &["rom", "sna", "tap", "tzx"])
+        .add_filter("Commodore 64", &["prg"]);
     parented(dialog, window).pick_file()
 }
 
@@ -129,6 +131,9 @@ fn kind_for(ext: &str) -> Option<OpenKind> {
     }
     if ext.eq_ignore_ascii_case("tap") || ext.eq_ignore_ascii_case("tzx") {
         return Some(OpenKind::Tape);
+    }
+    if ext.eq_ignore_ascii_case("prg") {
+        return Some(OpenKind::Prg);
     }
     None
 }

@@ -33,7 +33,30 @@ The +2A and +3 images in that archive are not for this machine yet.
 ## Commodore 64
 
 Commodore's original KERNAL, BASIC, and character ROMs are still copyrighted.
-Do not put those dumps in the repo. Use the clean-room **Open ROMs** set instead
+Do not commit those dumps. 8bitEmu loads whatever you place in the expected
+filenames below (gitignored).
+
+### Stock ROMs (best compatibility)
+
+For `PRINT`, `LOAD`, and most software you want the real images (e.g. from
+[C64 Forever](https://www.c64forever.com/) / Cloanto, or a dump from hardware
+you own). Rename them to the expected names in this folder:
+
+- `c64-kernal.rom` — 8192 bytes (901227-03)
+- `c64-basic.rom` — 8192 bytes (901226-01)
+- `c64-chargen.rom` — 4096 bytes (901225-01)
+
+VICE publishes these SHA1 sums for identification (not redistribution):
+
+- KERNAL 901227-03 `1d503e56df85a62fee696e7618dc5b4e781df1bb`
+- BASIC 901226-01 `79015323128650c742a3694c9429aa91f355905e`
+- CHARGEN 901225-01 `adc7c31e18c7c96429e4a4c502e945c9321b7fb9`
+
+Keep Open ROMs copies aside if you still want them (e.g. `c64-*-openroms.rom`).
+
+### Open ROMs (freely redistributable, incomplete BASIC)
+
+Use the clean-room **Open ROMs** set for a legal default boot
 (LGPL-3.0 / GPL-3.0). Upstream:
 
 https://github.com/MEGA65/open-roms

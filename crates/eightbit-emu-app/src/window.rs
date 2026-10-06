@@ -157,7 +157,7 @@ impl App {
 
     fn load_bytes(&mut self, name: &str, bytes: &[u8]) {
         let Some(kind) = open_file::open_kind(name) else {
-            eprintln!("8bitemu: {name} is not a rom, sna, tap, or tzx");
+            eprintln!("8bitemu: {name} is not a rom, sna, tap, tzx, or prg");
             return;
         };
         if let Err(error) = self.apply_open(kind, bytes) {
@@ -170,7 +170,12 @@ impl App {
             OpenKind::Rom => self.open_rom(bytes),
             OpenKind::Sna => self.open_sna(bytes),
             OpenKind::Tape => self.open_tape(bytes),
+            OpenKind::Prg => self.open_prg(bytes),
         }
+    }
+
+    fn open_prg(&mut self, bytes: &[u8]) -> Result<(), eightbit_emu_core::CoreError> {
+        self.presenter.load_prg(bytes)
     }
 
     fn open_rom(&mut self, bytes: &[u8]) -> Result<(), eightbit_emu_core::CoreError> {
@@ -550,13 +555,7 @@ fn look_from_code(code: KeyCode) -> Option<Look> {
 fn presenter_from(session: Session) -> Result<Presenter, GpuError> {
     let mut presenter = Presenter::new(PresentPace::Fixed60Hz);
     if session.machine == MachineKind::C64 {
-        let kernal = session.kernal.ok_or_else(|| missing_rom("kernal"))?;
-        let basic = session.basic.ok_or_else(|| missing_rom("basic"))?;
-        let chargen = session.chargen.ok_or_else(|| missing_rom("chargen"))?;
-        presenter
-            .load_c64_roms(&kernal, &basic, &chargen)
-            .map_err(show_error)?;
-        return Ok(presenter);
+        return presenter_c64(presenter, session);
     }
     if let Some(rom) = session.rom {
         presenter
@@ -570,6 +569,32 @@ fn presenter_from(session: Session) -> Result<Presenter, GpuError> {
         presenter.load_sna(&sna).map_err(show_error)?;
     }
     Ok(presenter)
+}
+
+fn presenter_c64(mut presenter: Presenter, session: Session) -> Result<Presenter, GpuError> {
+    boot_c64_roms(&mut presenter, &session)?;
+    boot_c64_prg(&mut presenter, session.prg)?;
+    Ok(presenter)
+}
+
+fn boot_c64_roms(presenter: &mut Presenter, session: &Session) -> Result<(), GpuError> {
+    let kernal = session.kernal.as_ref().ok_or_else(|| missing_rom("kernal"))?;
+    let basic = session.basic.as_ref().ok_or_else(|| missing_rom("basic"))?;
+    let chargen = session
+        .chargen
+        .as_ref()
+        .ok_or_else(|| missing_rom("chargen"))?;
+    presenter
+        .load_c64_roms(kernal, basic, chargen)
+        .map_err(show_error)
+}
+
+fn boot_c64_prg(presenter: &mut Presenter, prg: Option<Vec<u8>>) -> Result<(), GpuError> {
+    let Some(bytes) = prg else {
+        return Ok(());
+    };
+    presenter.warm_c64(250).map_err(show_error)?;
+    presenter.load_prg(&bytes).map_err(show_error)
 }
 
 fn missing_rom(name: &str) -> GpuError {

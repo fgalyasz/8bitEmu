@@ -1,6 +1,6 @@
 # 8bitEmu
 
-Cross-platform Spectrum and C64 player. With no arguments the window runs a small Z80 program in 48K RAM: blue border, three bright lines, and a cell that steps through the ink colors. Pass a ROM or an SNA the user already has to boot a 48K or basic 128K Spectrum. A TAP or TZX plays through the ear bit. A booted 48K machine types `LOAD ""`. A booted 128K machine presses Enter for Tape Loader. `--machine c64` boots a Commodore 64 from Open ROMs in `roms/c64-*.rom` (or `--kernal` / `--basic` / `--chargen`). The C64 shows VIC text mode with the Colodore palette and a CIA keyboard. The picture fits the window, or snaps to 125%, 150%, 175%, and 200%. No ROM is included in git.
+Cross-platform Spectrum and C64 player. With no arguments the window runs a small Z80 program in 48K RAM: blue border, three bright lines, and a cell that steps through the ink colors. Pass a ROM or an SNA the user already has to boot a 48K or basic 128K Spectrum. A TAP or TZX plays through the ear bit. A booted 48K machine types `LOAD ""`. A booted 128K machine presses Enter for Tape Loader. `--machine c64` boots a Commodore 64 from ROMs in `roms/c64-*.rom` (or `--kernal` / `--basic` / `--chargen`). `--prg file.prg` selects C64, waits for boot, soft-loads the PRG, and auto-starts it. File → Open… also accepts `.prg` on a C64 session. The C64 shows VIC text mode with the Colodore palette and a CIA keyboard. The picture fits the window, or snaps to 125%, 150%, 175%, and 200%. No ROM is included in git.
 
 ```
 cargo test
@@ -45,4 +45,7 @@ The +2A and +3 images in that archive are not for this machine. A game snapshot 
 
 ## Commodore 64 ROM
 
-Use the clean-room [Open ROMs](https://github.com/MEGA65/open-roms) set (also Debian `open-roms`). See `roms/README.md` for download links, expected names (`c64-kernal.rom`, `c64-basic.rom`, `c64-chargen.rom`), and SHA1 sums. Commodore stock dumps stay out of the repository.
+See `roms/README.md`. Defaults are `roms/c64-kernal.rom`, `c64-basic.rom`, and
+`c64-chargen.rom` (gitignored). Open ROMs boots legally but its BASIC is incomplete.
+For real `PRINT` / software compatibility, place stock images you own (e.g. C64 Forever)
+under those names. Stock dumps are never committed.

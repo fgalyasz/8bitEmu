@@ -23,6 +23,7 @@ fn session_from(launch: Launch) -> Result<Session, String> {
         rom: read_optional(launch.rom)?,
         sna: read_optional(launch.sna)?,
         tape,
+        prg: read_optional(launch.prg)?,
         kernal: read_optional(launch.kernal)?,
         basic: read_optional(launch.basic)?,
         chargen: read_optional(launch.chargen)?,

@@ -4,6 +4,7 @@ use crate::frame::Frame;
 use super::cpu::{self, Bus, Cpu};
 use super::mem::Map;
 use super::paint;
+use super::prg;
 
 const FRAME_CYCLES: u32 = 19_656;
 const STEP_LIMIT: u32 = 200_000;
@@ -59,6 +60,18 @@ impl Machine {
         self.map.write_ram(address, value);
     }
 
+    pub fn load_prg(&mut self, bytes: &[u8]) -> Result<(), CoreError> {
+        if !self.booted {
+            return Err(CoreError::Unsupported {
+                kind: "prg",
+                id: 0,
+            });
+        }
+        let (address, payload) = prg::parse(bytes)?;
+        prg::write_payload(&mut self.map, address, payload)?;
+        self.finish_prg(address, payload.len())
+    }
+
     pub fn poke_io(&mut self, address: u16, value: u8) {
         self.map.write(address, value);
     }
@@ -91,6 +104,17 @@ impl Machine {
 
     pub fn take_audio(&mut self) -> Vec<f32> {
         Vec::new()
+    }
+
+    fn finish_prg(&mut self, address: u16, length: usize) -> Result<(), CoreError> {
+        let end = prg::payload_end(address, length)?;
+        if prg::is_basic_load(address) {
+            prg::link_basic(&mut self.map, end);
+            prg::queue_run(&mut self.map);
+            return Ok(());
+        }
+        self.cpu.pc = address;
+        Ok(())
     }
 
     fn run_frame(&mut self) -> Result<(), CoreError> {

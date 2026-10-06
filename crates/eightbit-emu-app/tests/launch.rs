@@ -33,6 +33,14 @@ fn c64_machine_defaults_rom_paths() {
 }
 
 #[test]
+fn prg_flag_selects_c64_and_path() {
+    let launch = parse_launch(&args(&["--prg", "demo.prg"])).expect("prg");
+    assert_eq!(launch.machine, MachineKind::C64);
+    assert_eq!(launch.prg.as_deref(), Some("demo.prg"));
+    assert_eq!(launch.kernal.as_deref(), Some("roms/c64-kernal.rom"));
+}
+
+#[test]
 fn unknown_arguments_name_themselves() {
     let error = parse_launch(&args(&["--tape"])).expect_err("unknown");
     assert!(error.contains("--tape"));

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.5 — 2026-10-06
+
+- Soft-load a Commodore `.prg` with `--prg` or File → Open… on a C64 session. BASIC programs at `$0801` link and `RUN`; other load addresses jump to the start.
+
+## 0.9.4 — 2026-10-06
+
+- `roms/README.md` documents placing stock C64 ROMs you own (C64 Forever / hardware dump) under `c64-*.rom`, with VICE SHA1s for verification. Open ROMs remain the redistributable default.
+
 ## 0.9.3 — 2026-10-06
 
 - C64 keys follow the KERNAL matrix. Typing A no longer inserts R.
