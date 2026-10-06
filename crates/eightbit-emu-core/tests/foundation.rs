@@ -1,4 +1,4 @@
-use scanline_core::{
+use eightbit_emu_core::{
     Attribute, BORDER, Blend, CONTENT_HEIGHT, CONTENT_WIDTH, Content, CoreError, Look, Mailbox,
     PaletteKind, PresentPace, Presenter, Rgb, Sprite, TRANSPARENT, TemporalHistory,
     attribute_index, c64_pal_clock, centered_viewport, compose, demo_frame, demo_sprite_x,
@@ -122,7 +122,7 @@ fn look_digits_select_the_three_modes() {
     assert_eq!(Look::from_digit(2), Some(Look::SoftEdge));
     assert_eq!(Look::from_digit(3), Some(Look::Temporal));
     assert_eq!(Look::from_digit(9), None);
-    assert_eq!(Look::Sharp.title(), "Scanline — Sharp");
+    assert_eq!(Look::Sharp.title(), "8bitEmu — Sharp");
     assert_eq!(Look::Temporal.shader_id(), 2);
 }
 
@@ -331,7 +331,7 @@ fn compose_reports_attribute_border_and_sprite_luma() {
             .to_string()
             .contains("sprite luma")
     );
-    assert_eq!(Look::Temporal.title(), "Scanline — Temporal color");
+    assert_eq!(Look::Temporal.title(), "8bitEmu — Temporal color");
 }
 
 #[test]
@@ -366,7 +366,7 @@ fn temporal_neighbor_blend_and_sprite_luma_are_shaded() {
     frame.luma[0] = 0;
     let soft = shade_image(&frame, Look::SoftEdge).unwrap();
     assert_eq!(soft[0], 255);
-    assert_eq!(Look::SoftEdge.title(), "Scanline — Soft edge");
+    assert_eq!(Look::SoftEdge.title(), "8bitEmu — Soft edge");
     assert_eq!(Look::Sharp.shader_id(), 0);
     assert_eq!(Look::SoftEdge.shader_id(), 1);
 }
@@ -432,7 +432,7 @@ fn offscreen_sprite() -> Content {
     content
 }
 
-fn no_sprite(frame: &scanline_core::Frame) -> bool {
+fn no_sprite(frame: &eightbit_emu_core::Frame) -> bool {
     let mut index = 0;
     while index < frame.sprite_on.len() {
         if frame.sprite_on[index] != 0 {
@@ -500,7 +500,7 @@ fn block_content() -> Content {
     }
 }
 
-fn content_origin(frame: &scanline_core::Frame) -> usize {
+fn content_origin(frame: &eightbit_emu_core::Frame) -> usize {
     usize::from(BORDER) * usize::from(frame.width) + usize::from(BORDER)
 }
 
@@ -514,13 +514,13 @@ fn cadence_prefix(pace: PresentPace) -> Vec<u64> {
     got
 }
 
-fn cycling_ink(frame: &scanline_core::Frame) -> u8 {
+fn cycling_ink(frame: &eightbit_emu_core::Frame) -> u8 {
     let x = usize::from(BORDER);
     let y = usize::from(BORDER);
     frame.index[y * usize::from(frame.width) + x]
 }
 
-fn sprite_column(frame: &scanline_core::Frame) -> usize {
+fn sprite_column(frame: &eightbit_emu_core::Frame) -> usize {
     let mut index = 0;
     while index < frame.sprite_on.len() {
         if frame.sprite_on[index] != 0 {

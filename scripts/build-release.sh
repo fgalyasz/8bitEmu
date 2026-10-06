@@ -21,23 +21,23 @@ arch_of() {
 }
 
 dist_folder() {
-  echo "dist/scanline-$1-$2"
+  echo "dist/eightbit-emu-$1-$2"
 }
 
 cargo_binary() {
   if [[ "$1" == windows ]]; then
-    echo scanline-app.exe
+    echo eightbit-emu.exe
     return
   fi
-  echo scanline-app
+  echo eightbit-emu
 }
 
 shipped_binary() {
   if [[ "$1" == windows ]]; then
-    echo scanline.exe
+    echo eightbit-emu.exe
     return
   fi
-  echo scanline
+  echo eightbit-emu
 }
 
 target_dir() {
@@ -49,7 +49,7 @@ target_dir() {
 }
 
 die() {
-  echo "scanline: $*" >&2
+  echo "8bitemu: $*" >&2
   exit 1
 }
 
@@ -62,7 +62,7 @@ load_cargo() {
 }
 
 build_release() {
-  (cd "$root" && cargo build --release -p scanline-app)
+  (cd "$root" && cargo build --release -p eightbit-emu-app)
 }
 
 publish() {

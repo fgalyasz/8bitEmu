@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.14 — 2026-10-06
+
+- The product is 8bitEmu. Spectrum today, C64 next, and room for other 8-bit machines.
+
 ## 0.8.13 — 2026-10-05
 
 - A tape loads at turbo by default. Turn Loading sound on to hear the border tone.
@@ -42,7 +46,7 @@
 
 ## 0.8.3 — 2026-10-05
 
-- Escape no longer closes the window. Close it from the close button or the Scanline menu.
+- Escape no longer closes the window. Close it from the close button or the 8bitEmu menu.
 
 ## 0.8.2 — 2026-10-04
 
@@ -82,7 +86,7 @@
 
 ## 0.4.0 — 2026-10-04
 
-- Load a TAP or TZX through the ear bit, type `LOAD ""`, and resume a stopped tape with F9. F11 writes `scanline.sna`. A standard-speed SAVE writes `scanline.tap`. Kempston is port `0x1F`. The picture fits the window or snaps to 125%, 150%, 175%, and 200%.
+- Load a TAP or TZX through the ear bit, type `LOAD ""`, and resume a stopped tape with F9. F11 writes `8bitemu.sna`. A standard-speed SAVE writes `8bitemu.tap`. Kempston is port `0x1F`. The picture fits the window or snaps to 125%, 150%, 175%, and 200%.
 
 ## 0.3.0 — 2026-10-04
 
@@ -94,4 +98,4 @@
 
 ## 0.1.0 — 2026-10-04
 
-- Open Scanline on a stable, sharp ROM-free test pattern. Keys 1, 2, and 3 switch Sharp, Soft edge, and Temporal color. A 60 Hz panel holds five source frames across six refreshes.
+- Open 8bitEmu on a stable, sharp ROM-free test pattern. Keys 1, 2, and 3 switch Sharp, Soft edge, and Temporal color. A 60 Hz panel holds five source frames across six refreshes.

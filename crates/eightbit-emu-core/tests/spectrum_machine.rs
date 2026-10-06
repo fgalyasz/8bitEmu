@@ -1,4 +1,4 @@
-use scanline_core::{CoreError, Machine};
+use eightbit_emu_core::{CoreError, Machine};
 
 #[test]
 fn interrupt_waits_until_the_second_frame() {
@@ -205,7 +205,7 @@ fn striped_border() -> Vec<u8> {
     program(&bytes)
 }
 
-fn border_at(frame: &scanline_core::Frame, y: u16) -> u8 {
+fn border_at(frame: &eightbit_emu_core::Frame, y: u16) -> u8 {
     frame.index[usize::from(y) * usize::from(frame.width)]
 }
 
@@ -231,7 +231,7 @@ fn program(bytes: &[u8]) -> Vec<u8> {
     rom
 }
 
-fn ink_at(frame: &scanline_core::Frame, x: u16, y: u16) -> u8 {
+fn ink_at(frame: &eightbit_emu_core::Frame, x: u16, y: u16) -> u8 {
     let px = usize::from(x + 16);
     let py = usize::from(y + 16);
     frame.index[py * usize::from(frame.width) + px]

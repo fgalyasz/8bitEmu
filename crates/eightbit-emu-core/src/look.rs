@@ -17,9 +17,9 @@ impl Look {
 
     pub fn title(self) -> &'static str {
         match self {
-            Look::Sharp => "Scanline — Sharp",
-            Look::SoftEdge => "Scanline — Soft edge",
-            Look::Temporal => "Scanline — Temporal color",
+            Look::Sharp => "8bitEmu — Sharp",
+            Look::SoftEdge => "8bitEmu — Soft edge",
+            Look::Temporal => "8bitEmu — Temporal color",
         }
     }
 

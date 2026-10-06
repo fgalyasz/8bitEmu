@@ -14,7 +14,7 @@ if [[ ! "${slug}" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]]; then
 fi
 
 project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-dest="${project_root}/_bmad-output/planning-artifacts/prds/prd-Scanline-${slug}"
+dest="${project_root}/_bmad-output/planning-artifacts/prds/prd-8bitEmu-${slug}"
 templates="${project_root}/docs/pdlc-templates"
 
 if [[ -d "${dest}" ]]; then

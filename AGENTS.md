@@ -4,4 +4,4 @@ Follow **[docs/pdlc.md](docs/pdlc.md)** for every new product feature and user-v
 
 Speak Hungarian in chat. Use English in code, PRDs, GitHub issues, and commits.
 
-Load the project skill `.agents/skills/scanline-pdlc/SKILL.md` when the user asks for a feature, a product bugfix, or “PDLC”.
+Load the project skill `.agents/skills/eightbit-emu-pdlc/SKILL.md` when the user asks for a feature, a product bugfix, or “PDLC”.

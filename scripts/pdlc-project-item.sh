@@ -15,7 +15,7 @@ raw="$1"
 status="$2"
 owner="@me"
 project_number="10"
-repo="fgalyasz/Scanline"
+repo="fgalyasz/8bitEmu"
 
 case "${status}" in
   Todo|"In Progress"|Done) ;;

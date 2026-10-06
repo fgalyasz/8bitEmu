@@ -1,5 +1,5 @@
 [package]
-name = "scanline-app"
+name = "eightbit-emu-app"
 version = "0.1.0"
 edition = "2024"
 
@@ -9,6 +9,10 @@ cpal = "0.15.3"
 muda = { version = "0.21.0", default-features = false }
 pollster = "1.0.1"
 rfd = "0.17.2"
-scanline-core = { path = "../scanline-core" }
+eightbit-emu-core = { path = "../eightbit-emu-core" }
 wgpu = { version = "30.0.1", features = ["wgsl"] }
 winit = "0.30.13"
+
+[[bin]]
+name = "eightbit-emu"
+path = "src/main.rs"

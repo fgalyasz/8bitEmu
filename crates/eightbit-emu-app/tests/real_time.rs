@@ -1,4 +1,4 @@
-use scanline_app::{due_ticks, spread};
+use eightbit_emu_app::{due_ticks, spread};
 use std::collections::VecDeque;
 use std::time::Duration;
 

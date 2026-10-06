@@ -1,25 +1,25 @@
-# Scanline
+# 8bitEmu
 
 Cross-platform Spectrum and C64 player. With no arguments the window runs a small Z80 program in 48K RAM: blue border, three bright lines, and a cell that steps through the ink colors. Pass a ROM or an SNA the user already has to boot a 48K or basic 128K Spectrum. A TAP or TZX plays through the ear bit. A booted 48K machine types `LOAD ""`. A booted 128K machine presses Enter for Tape Loader. The picture fits the window, or snaps to 125%, 150%, 175%, and 200%. The border changes with the beam, so a load is striped. No ROM is included.
 
 ```
 cargo test
 ./scripts/build-release.sh
-cargo run -p scanline-app
-cargo run -p scanline-app -- --rom image.rom
-cargo run -p scanline-app -- --model 128 --rom image.rom
-cargo run -p scanline-app -- --rom image.rom --sna game.sna
-cargo run -p scanline-app -- --rom image.rom --tap game.tap
-cargo run -p scanline-app -- --rom image.rom --tzx game.tzx
+cargo run -p eightbit-emu-app
+cargo run -p eightbit-emu-app -- --rom image.rom
+cargo run -p eightbit-emu-app -- --model 128 --rom image.rom
+cargo run -p eightbit-emu-app -- --rom image.rom --sna game.sna
+cargo run -p eightbit-emu-app -- --rom image.rom --tap game.tap
+cargo run -p eightbit-emu-app -- --rom image.rom --tzx game.tzx
 ```
 
 File → Open… chooses a `.rom`, `.sna`, `.tap`, or `.tzx`. Command-O on macOS and Ctrl-O elsewhere open the same dialog. A tape opened on a booted 48K machine types `LOAD ""`. On 128K it presses Enter for Tape Loader. The tape stays parked until that loader is reading the ear, then keeps playing through the leader. File → Save Snapshot… writes an `.sna`. Save Tape as TAP… and Save Tape as TZX… write a standard-speed recording. Command-S, Command-Shift-T, and Command-Shift-Z do the same (Ctrl on the other platforms). View sets Fit, 125%, 150%, 175%, or 200%. The picture stays at Spectrum speed, including on a faster display. A tape finishes in a few seconds by default. Sound → Loading sound, and F4, turn the border tone on and load in real time. The loading picture stays on screen either way. The game is heard when the tape stops.
 
-Keys: F1 Sharp, F2 Soft edge, F3 Temporal color, F4 loading sound, F5 125%, F6 150%, F7 175%, F8 200%, F9 resume the tape, F11 save `scanline.sna`, F12 reset. Escape does nothing. Close the window from its close button or the Scanline menu. Dragging the window fits the picture. Digit keys and the letter rows go to the Spectrum matrix. Left Shift is Caps Shift. Right Shift and Left Control are Symbol Shift. Arrows and Right Alt are the Kempston joystick. A standard-speed `SAVE` also writes `scanline.tap` in the working directory.
+Keys: F1 Sharp, F2 Soft edge, F3 Temporal color, F4 loading sound, F5 125%, F6 150%, F7 175%, F8 200%, F9 resume the tape, F11 save `8bitemu.sna`, F12 reset. Escape does nothing. Close the window from its close button or the 8bitEmu menu. Dragging the window fits the picture. Digit keys and the letter rows go to the Spectrum matrix. Left Shift is Caps Shift. Right Shift and Left Control are Symbol Shift. Arrows and Right Alt are the Kempston joystick. A standard-speed `SAVE` also writes `8bitemu.tap` in the working directory.
 
 ## Release build
 
-`./scripts/build-release.sh` writes a release executable for the computer it runs on. macOS lands in `dist/scanline-macos-<arch>/scanline`, Linux in `dist/scanline-linux-<arch>/scanline`, and Windows in `dist/scanline-windows-<arch>/scanline.exe`. Run it on each system. No ROM is copied into `dist/`.
+`./scripts/build-release.sh` writes a release executable for the computer it runs on. macOS lands in `dist/eightbit-emu-macos-<arch>/eightbit-emu`, Linux in `dist/eightbit-emu-linux-<arch>/eightbit-emu`, and Windows in `dist/eightbit-emu-windows-<arch>/eightbit-emu.exe`. Run it on each system. No ROM is copied into `dist/`.
 
 ## System ROM
 

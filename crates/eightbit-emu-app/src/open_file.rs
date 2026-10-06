@@ -213,7 +213,7 @@ fn sound_key() -> Accelerator {
 fn menu_bar(file: &Submenu, view: &Submenu, sound: &Submenu) -> muda::Result<Menu> {
     #[cfg(target_os = "macos")]
     {
-        let app = Submenu::with_items("Scanline", true, &[&PredefinedMenuItem::quit(None)])?;
+        let app = Submenu::with_items("8bitEmu", true, &[&PredefinedMenuItem::quit(None)])?;
         return Menu::with_items(&[&app, file, view, sound]);
     }
     #[cfg(not(target_os = "macos"))]
@@ -287,9 +287,9 @@ impl SaveKind {
 
     pub fn file_name(self) -> &'static str {
         match self {
-            Self::Sna => "scanline.sna",
-            Self::Tap => "scanline.tap",
-            Self::Tzx => "scanline.tzx",
+            Self::Sna => "8bitemu.sna",
+            Self::Tap => "8bitemu.tap",
+            Self::Tzx => "8bitemu.tzx",
         }
     }
 

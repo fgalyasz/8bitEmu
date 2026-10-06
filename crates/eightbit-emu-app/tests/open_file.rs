@@ -1,4 +1,4 @@
-use scanline_app::{
+use eightbit_emu_app::{
     ensure_extension, open_kind, picture_size, rom_model_128, save_kind, save_shortcut,
     sna_model_128, OpenKind, PictureSize, SaveKind,
 };
@@ -31,7 +31,7 @@ fn menu_ids_select_the_size_and_the_save() {
     assert_eq!(save_shortcut(true, true, 't'), Some(SaveKind::Tap));
     assert_eq!(save_shortcut(true, true, 'z'), Some(SaveKind::Tzx));
     assert_eq!(save_shortcut(false, false, 's'), None);
-    assert_eq!(scanline_app::LOADING_SOUND, "loading-sound");
+    assert_eq!(eightbit_emu_app::LOADING_SOUND, "loading-sound");
 }
 
 #[test]

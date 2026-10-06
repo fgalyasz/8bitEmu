@@ -522,6 +522,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d8b14ccef22fc6f5a8f4d7d768562a182c04ce9a3b3157b91390b52ddfdf1a76"
 
 [[package]]
+name = "eightbit-emu-app"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "cpal",
+ "eightbit-emu-core",
+ "muda",
+ "pollster 1.0.1",
+ "rfd",
+ "wgpu",
+ "winit",
+]
+
+[[package]]
+name = "eightbit-emu-core"
+version = "0.1.0"
+
+[[package]]
 name = "either"
 version = "1.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1878,24 +1896,6 @@ checksum = "93fc1dc3aaa9bfed95e02e6eadabb4baf7e3078b0bd1b4d7b6b0b68378900502"
 dependencies = [
  "winapi-util",
 ]
-
-[[package]]
-name = "scanline-app"
-version = "0.1.0"
-dependencies = [
- "bytemuck",
- "cpal",
- "muda",
- "pollster 1.0.1",
- "rfd",
- "scanline-core",
- "wgpu",
- "winit",
-]
-
-[[package]]
-name = "scanline-core"
-version = "0.1.0"
 
 [[package]]
 name = "scoped-tls"

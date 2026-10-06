@@ -1,8 +1,8 @@
-use scanline_app::{Launch, Session};
+use eightbit_emu_app::{Launch, Session};
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    let launch = match scanline_app::parse_launch(&args) {
+    let launch = match eightbit_emu_app::parse_launch(&args) {
         Ok(launch) => launch,
         Err(error) => fail(error),
     };
@@ -10,7 +10,7 @@ fn main() {
         Ok(session) => session,
         Err(error) => fail(error),
     };
-    if let Err(error) = scanline_app::run(session) {
+    if let Err(error) = eightbit_emu_app::run(session) {
         fail(error.to_string());
     }
 }
@@ -43,6 +43,6 @@ fn read_optional(path: Option<String>) -> Result<Option<Vec<u8>>, String> {
 }
 
 fn fail(message: String) -> ! {
-    eprintln!("scanline: {message}");
+    eprintln!("8bitemu: {message}");
     std::process::exit(1);
 }

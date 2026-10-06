@@ -2,7 +2,7 @@
 title: TITLE
 status: ready-for-dev
 created: YYYY-MM-DD
-prd: _bmad-output/planning-artifacts/prds/prd-Scanline-SLUG/prd.md
+prd: _bmad-output/planning-artifacts/prds/prd-8bitEmu-SLUG/prd.md
 ---
 
 # Epic: TITLE

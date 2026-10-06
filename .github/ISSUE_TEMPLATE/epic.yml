@@ -14,7 +14,7 @@ body:
     id: prd
     attributes:
       label: PRD path
-      placeholder: _bmad-output/planning-artifacts/prds/prd-Scanline-slug/prd.md
+      placeholder: _bmad-output/planning-artifacts/prds/prd-8bitEmu-slug/prd.md
     validations:
       required: true
   - type: textarea
@@ -36,4 +36,4 @@ body:
   - type: markdown
     attributes:
       value: |
-        Add this epic and every sub-issue to [Scanline project #10](https://github.com/users/fgalyasz/projects/10) with `./scripts/pdlc-project-item.sh <n> "Todo"`.
+        Add this epic and every sub-issue to [8bitEmu project #10](https://github.com/users/fgalyasz/projects/10) with `./scripts/pdlc-project-item.sh <n> "Todo"`.

@@ -1,5 +1,5 @@
 ---
-description: Run the Scanline product PDLC for every new feature and user-visible bugfix
+description: Run the 8bitEmu product PDLC for every new feature and user-visible bugfix
 alwaysApply: true
 ---
 

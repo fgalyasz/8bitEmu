@@ -1,4 +1,4 @@
-use scanline_core::{Cpu, Memory, Ports, PresentPace, Presenter, step};
+use eightbit_emu_core::{Cpu, Memory, Ports, PresentPace, Presenter, step};
 
 #[test]
 fn every_documented_opcode_executes_once() {
@@ -56,12 +56,12 @@ fn im2_and_the_envelope_change_the_frame() {
     rom[0x203] = 0x00;
     rom[0x204] = 0x40;
     rom[0x205] = 0xC9;
-    let mut machine = scanline_core::Machine::new();
+    let mut machine = eightbit_emu_core::Machine::new();
     machine.load_rom(&rom, false).expect("rom");
     machine.frame().expect("first");
     machine.frame().expect("second");
     assert_eq!(machine.read(0x4000), 0x42);
-    let mut ay = scanline_core::Machine::new();
+    let mut ay = eightbit_emu_core::Machine::new();
     ay.load_rom(&ay_program(), true).expect("rom");
     ay.frame().expect("frame");
     let audio = ay.take_audio();
@@ -78,7 +78,7 @@ fn rejected_banks_and_the_shadow_read_stay_inside_range() {
     memory.write_bank(0, &[1; 4]);
     assert_eq!(memory.bank_byte(8, 0), 0);
     assert_eq!(memory.bank_byte(0, 20_000), 0);
-    let mut machine = scanline_core::Machine::new();
+    let mut machine = eightbit_emu_core::Machine::new();
     machine.reset();
     assert_eq!(machine.border(), 0);
 }

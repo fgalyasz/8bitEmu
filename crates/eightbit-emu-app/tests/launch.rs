@@ -1,4 +1,4 @@
-use scanline_app::{kempston_bit, parse_launch, quits, spectrum_key};
+use eightbit_emu_app::{kempston_bit, parse_launch, quits, spectrum_key};
 use winit::keyboard::KeyCode;
 
 #[test]

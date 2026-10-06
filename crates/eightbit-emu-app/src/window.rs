@@ -4,7 +4,7 @@ use crate::launch::Session;
 use crate::open_file::{self, MenuBar, OpenKind, PictureSize, SaveKind, OPEN_ID};
 use crate::pace::{due_ticks, CATCH_UP, DISPLAY_FRAME, TURBO_SLICE};
 use crate::speaker::Speaker;
-use scanline_core::{
+use eightbit_emu_core::{
     aspect_fit, percent_size, place_percent, presented_size, BORDER, CONTENT_HEIGHT, CONTENT_WIDTH,
     Frame, Look, PresentPace, Presenter, Viewport,
 };
@@ -145,7 +145,7 @@ impl App {
         let bytes = match std::fs::read(path) {
             Ok(bytes) => bytes,
             Err(error) => {
-                eprintln!("scanline: {}: {error}", path.display());
+                eprintln!("8bitemu: {}: {error}", path.display());
                 return;
             }
         };
@@ -154,15 +154,15 @@ impl App {
 
     fn load_bytes(&mut self, name: &str, bytes: &[u8]) {
         let Some(kind) = open_file::open_kind(name) else {
-            eprintln!("scanline: {name} is not a rom, sna, tap, or tzx");
+            eprintln!("8bitemu: {name} is not a rom, sna, tap, or tzx");
             return;
         };
         if let Err(error) = self.apply_open(kind, bytes) {
-            eprintln!("scanline: {error}");
+            eprintln!("8bitemu: {error}");
         }
     }
 
-    fn apply_open(&mut self, kind: OpenKind, bytes: &[u8]) -> Result<(), scanline_core::CoreError> {
+    fn apply_open(&mut self, kind: OpenKind, bytes: &[u8]) -> Result<(), eightbit_emu_core::CoreError> {
         match kind {
             OpenKind::Rom => self.open_rom(bytes),
             OpenKind::Sna => self.open_sna(bytes),
@@ -170,20 +170,20 @@ impl App {
         }
     }
 
-    fn open_rom(&mut self, bytes: &[u8]) -> Result<(), scanline_core::CoreError> {
+    fn open_rom(&mut self, bytes: &[u8]) -> Result<(), eightbit_emu_core::CoreError> {
         let model = open_file::rom_model_128(bytes.len(), self.model_128);
         self.presenter.load_rom(bytes, model)?;
         self.model_128 = model;
         Ok(())
     }
 
-    fn open_sna(&mut self, bytes: &[u8]) -> Result<(), scanline_core::CoreError> {
+    fn open_sna(&mut self, bytes: &[u8]) -> Result<(), eightbit_emu_core::CoreError> {
         self.presenter.load_sna(bytes)?;
         self.model_128 = open_file::sna_model_128(bytes.len(), self.model_128);
         Ok(())
     }
 
-    fn open_tape(&mut self, bytes: &[u8]) -> Result<(), scanline_core::CoreError> {
+    fn open_tape(&mut self, bytes: &[u8]) -> Result<(), eightbit_emu_core::CoreError> {
         let booted = self.presenter.is_booted();
         self.presenter.load_tape(bytes)?;
         if booted {
@@ -229,7 +229,7 @@ impl App {
             return;
         }
         if down && code == KeyCode::F11 {
-            write_named("scanline.sna", self.presenter.snapshot());
+            write_named("8bitemu.sna", self.presenter.snapshot());
             return;
         }
         if stick_key(self, code, down) {
@@ -293,8 +293,8 @@ impl App {
         }
         match prepared_save(&self.presenter, kind) {
             Ok(Some(bytes)) => self.ask_and_write(kind, &bytes),
-            Ok(None) => eprintln!("scanline: no recording to save"),
-            Err(error) => eprintln!("scanline: {error}"),
+            Ok(None) => eprintln!("8bitemu: no recording to save"),
+            Err(error) => eprintln!("8bitemu: {error}"),
         }
     }
 
@@ -369,7 +369,7 @@ impl App {
             self.speaker.push(&audio);
         }
         if let Some(bytes) = self.presenter.take_tap() {
-            write_bytes("scanline.tap", &bytes);
+            write_bytes("8bitemu.tap", &bytes);
         }
         self.rush_load();
     }
@@ -404,7 +404,7 @@ impl App {
         if self.noted.as_deref() == Some(message.as_str()) {
             return;
         }
-        eprintln!("scanline: {message}");
+        eprintln!("8bitemu: {message}");
         self.noted = Some(message);
     }
 
@@ -480,9 +480,9 @@ fn picture_window(percent: Option<u32>) -> (u32, u32) {
 }
 
 fn prepared_save(
-    presenter: &scanline_core::Presenter,
+    presenter: &eightbit_emu_core::Presenter,
     kind: SaveKind,
-) -> Result<Option<Vec<u8>>, scanline_core::CoreError> {
+) -> Result<Option<Vec<u8>>, eightbit_emu_core::CoreError> {
     match kind {
         SaveKind::Sna => presenter.snapshot().map(Some),
         SaveKind::Tap => Ok(presenter.tap_bytes()),
@@ -518,13 +518,13 @@ fn percent_from(code: KeyCode) -> Option<u32> {
 fn write_named(name: &str, image: Result<Vec<u8>, impl std::fmt::Display>) {
     match image {
         Ok(bytes) => write_bytes(name, &bytes),
-        Err(error) => eprintln!("scanline: {error}"),
+        Err(error) => eprintln!("8bitemu: {error}"),
     }
 }
 
 fn write_bytes(name: &str, bytes: &[u8]) {
     if let Err(error) = std::fs::write(name, bytes) {
-        eprintln!("scanline: {name}: {error}");
+        eprintln!("8bitemu: {name}: {error}");
     }
 }
 

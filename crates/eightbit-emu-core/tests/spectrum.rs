@@ -1,4 +1,4 @@
-use scanline_core::{
+use eightbit_emu_core::{
     BORDER, CoreError, Cpu, Machine, Memory, Ports, attribute_address, bitmap_address, frame_from,
     run_until_halt, step,
 };
@@ -299,7 +299,7 @@ fn jump_target(opcode: u8, flags: u8) -> u16 {
     cpu.pc
 }
 
-fn ink_at(frame: &scanline_core::Frame, x: u16, y: u16) -> u8 {
+fn ink_at(frame: &eightbit_emu_core::Frame, x: u16, y: u16) -> u8 {
     let px = usize::from(x + BORDER);
     let py = usize::from(y + BORDER);
     frame.index[py * usize::from(frame.width) + px]

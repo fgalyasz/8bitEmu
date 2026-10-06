@@ -1,4 +1,4 @@
-use scanline_core::{
+use eightbit_emu_core::{
     aspect_fit, load_prompt, open_tape, percent_size, place_percent, BORDER, CONTENT_HEIGHT,
     CONTENT_WIDTH, CoreError, Machine, Memory, Ports, PresentPace, Presenter, Recorder,
 };

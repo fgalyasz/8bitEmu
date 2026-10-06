@@ -28,16 +28,16 @@ rejects() {
 }
 
 check macos-folder "$(dist_folder "$(platform_of Darwin)" "$(arch_of arm64)")" \
-  "dist/scanline-macos-aarch64"
-check macos-cargo "$(cargo_binary macos)" scanline-app
-check macos-ship "$(shipped_binary macos)" scanline
+  "dist/eightbit-emu-macos-aarch64"
+check macos-cargo "$(cargo_binary macos)" eightbit-emu
+check macos-ship "$(shipped_binary macos)" eightbit-emu
 check linux-folder "$(dist_folder "$(platform_of Linux)" "$(arch_of x86_64)")" \
-  "dist/scanline-linux-x86_64"
-check linux-ship "$(shipped_binary linux)" scanline
+  "dist/eightbit-emu-linux-x86_64"
+check linux-ship "$(shipped_binary linux)" eightbit-emu
 check windows-folder "$(dist_folder "$(platform_of MINGW64_NT-10.0)" "$(arch_of amd64)")" \
-  "dist/scanline-windows-x86_64"
-check windows-cargo "$(cargo_binary windows)" scanline-app.exe
-check windows-ship "$(shipped_binary windows)" scanline.exe
+  "dist/eightbit-emu-windows-x86_64"
+check windows-cargo "$(cargo_binary windows)" eightbit-emu.exe
+check windows-ship "$(shipped_binary windows)" eightbit-emu.exe
 check aarch64 "$(arch_of aarch64)" aarch64
 rejects unknown platform_of Haiku
 

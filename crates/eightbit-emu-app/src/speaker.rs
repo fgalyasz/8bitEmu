@@ -26,7 +26,7 @@ impl Speaker {
         }));
         let stream = open_stream(queue.clone());
         if stream.is_none() {
-            eprintln!("scanline: audio device unavailable");
+            eprintln!("8bitemu: audio device unavailable");
         }
         Self {
             queue,
@@ -188,7 +188,7 @@ fn silence(data: &mut [f32]) {
 }
 
 fn report_error(error: cpal::StreamError) {
-    eprintln!("scanline: {error}");
+    eprintln!("8bitemu: {error}");
 }
 
 #[cfg(test)]

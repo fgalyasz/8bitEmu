@@ -2,7 +2,7 @@ use std::fmt;
 use std::sync::Arc;
 
 use bytemuck::{Pod, Zeroable};
-use scanline_core::{Frame, Look, PaletteKind, centered_viewport, integer_scale};
+use eightbit_emu_core::{Frame, Look, PaletteKind, centered_viewport, integer_scale};
 use wgpu::util::DeviceExt;
 use winit::window::Window;
 
@@ -154,7 +154,7 @@ impl Present {
             },
         ];
         self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("scanline-present"),
+            label: Some("eightbit-emu-present"),
             layout: &self.layout,
             entries: &entries,
         })
@@ -186,7 +186,7 @@ fn adapter_options<'a>(
 
 fn bind_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        label: Some("scanline-present"),
+        label: Some("eightbit-emu-present"),
         entries: &[uniform_entry(), texture_entry(1), texture_entry(2)],
     })
 }
@@ -223,11 +223,11 @@ fn pipeline(
     format: wgpu::TextureFormat,
 ) -> wgpu::RenderPipeline {
     let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: Some("scanline-present"),
+        label: Some("eightbit-emu-present"),
         source: wgpu::ShaderSource::Wgsl(SHADER.into()),
     });
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-        label: Some("scanline-present"),
+        label: Some("eightbit-emu-present"),
         bind_group_layouts: &[Some(layout)],
         immediate_size: 0,
     });
@@ -250,7 +250,7 @@ fn pipeline_desc<'a>(
     targets: &'a [Option<wgpu::ColorTargetState>],
 ) -> wgpu::RenderPipelineDescriptor<'a> {
     wgpu::RenderPipelineDescriptor {
-        label: Some("scanline-present"),
+        label: Some("eightbit-emu-present"),
         layout: Some(layout),
         vertex: vertex_state(shader),
         fragment: Some(fragment_state(shader, targets)),
@@ -293,7 +293,7 @@ fn uniform_buffer(
     origin_y: u32,
 ) -> wgpu::Buffer {
     device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-        label: Some("scanline-uniforms"),
+        label: Some("eightbit-emu-uniforms"),
         contents: bytemuck::bytes_of(&uniforms(frame, look, picture_w, picture_h, origin_x, origin_y)),
         usage: wgpu::BufferUsages::UNIFORM,
     })
@@ -362,7 +362,7 @@ fn rgba_texture(
 
 fn texture_desc(frame: &Frame) -> wgpu::TextureDescriptor<'_> {
     wgpu::TextureDescriptor {
-        label: Some("scanline-plane"),
+        label: Some("eightbit-emu-plane"),
         size: texture_size(frame),
         mip_level_count: 1,
         sample_count: 1,
@@ -430,7 +430,7 @@ fn target_texture(
     format: wgpu::TextureFormat,
 ) -> wgpu::Texture {
     device.create_texture(&wgpu::TextureDescriptor {
-        label: Some("scanline-target"),
+        label: Some("eightbit-emu-target"),
         size: wgpu::Extent3d {
             width,
             height,
@@ -465,7 +465,7 @@ fn draw_pass(
 ) {
     let attachment = color_attachment(view);
     let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-        label: Some("scanline-present"),
+        label: Some("eightbit-emu-present"),
         color_attachments: &[Some(attachment)],
         depth_stencil_attachment: None,
         timestamp_writes: None,
@@ -511,7 +511,7 @@ fn padded_stride(width: u32) -> u32 {
 
 fn read_buffer(device: &wgpu::Device, stride: u32, height: u32) -> wgpu::Buffer {
     device.create_buffer(&wgpu::BufferDescriptor {
-        label: Some("scanline-read"),
+        label: Some("eightbit-emu-read"),
         size: u64::from(stride) * u64::from(height),
         usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
         mapped_at_creation: false,
