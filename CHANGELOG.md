@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.6 — 2026-10-06
+
+- The C64 SID plays three voices (triangle, saw, pulse, noise) with ADSR and master volume. The filter still waits for a later pass.
+
 ## 0.9.5 — 2026-10-06
 
 - Soft-load a Commodore `.prg` with `--prg` or File → Open… on a C64 session. BASIC programs at `$0801` link and `RUN`; other load addresses jump to the start.
@@ -22,7 +26,7 @@
 
 ## 0.9.0 — 2026-10-06
 
-- Boot a C64 with `--machine c64` from Open ROMs in `roms/c64-*.rom`. VIC text mode, Colodore colours, and the CIA keyboard run. SID, sprites, and tape wait for a later pass.
+- Boot a C64 with `--machine c64` from Open ROMs in `roms/c64-*.rom`. VIC text mode, Colodore colours, and the CIA keyboard run. Sprites and tape wait for a later pass.
 
 ## 0.8.14 — 2026-10-06
 

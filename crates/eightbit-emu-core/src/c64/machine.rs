@@ -8,11 +8,15 @@ use super::prg;
 
 const FRAME_CYCLES: u32 = 19_656;
 const STEP_LIMIT: u32 = 200_000;
+const SAMPLE_RATE: u32 = 48_000;
+const AUDIO_CLOCK: u32 = FRAME_CYCLES * 50;
 
 pub struct Machine {
     cpu: Cpu,
     map: Map,
     booted: bool,
+    audio: Vec<f32>,
+    audio_acc: u32,
 }
 
 impl Machine {
@@ -21,6 +25,8 @@ impl Machine {
             cpu: Cpu::default(),
             map: Map::new(),
             booted: false,
+            audio: Vec::new(),
+            audio_acc: 0,
         }
     }
 
@@ -82,10 +88,7 @@ impl Machine {
 
     pub fn step_instruction(&mut self) -> Result<u32, CoreError> {
         let used = cpu::step(&mut self.cpu, &mut self.map)?;
-        self.map.tick(used);
-        if self.map.irq_line() {
-            cpu::trigger_irq(&mut self.cpu);
-        }
+        self.retire(used);
         Ok(used)
     }
 
@@ -103,7 +106,7 @@ impl Machine {
     }
 
     pub fn take_audio(&mut self) -> Vec<f32> {
-        Vec::new()
+        std::mem::take(&mut self.audio)
     }
 
     fn finish_prg(&mut self, address: u16, length: usize) -> Result<(), CoreError> {
@@ -117,6 +120,22 @@ impl Machine {
         Ok(())
     }
 
+    fn retire(&mut self, cycles: u32) {
+        self.map.tick(cycles);
+        if self.map.irq_line() {
+            cpu::trigger_irq(&mut self.cpu);
+        }
+        self.mix(cycles);
+    }
+
+    fn mix(&mut self, cycles: u32) {
+        let sample = self.map.sid.sample();
+        self.audio_acc += cycles.saturating_mul(SAMPLE_RATE);
+        let count = self.audio_acc / AUDIO_CLOCK;
+        self.audio_acc %= AUDIO_CLOCK;
+        push_samples(&mut self.audio, sample, count);
+    }
+
     fn run_frame(&mut self) -> Result<(), CoreError> {
         let mut cycles = 0u32;
         let mut steps = 0u32;
@@ -125,14 +144,19 @@ impl Machine {
                 return Err(CoreError::StepLimit);
             }
             let used = cpu::step(&mut self.cpu, &mut self.map)?;
-            self.map.tick(used);
-            if self.map.irq_line() {
-                cpu::trigger_irq(&mut self.cpu);
-            }
+            self.retire(used);
             cycles += used;
             steps += 1;
         }
         Ok(())
+    }
+}
+
+fn push_samples(audio: &mut Vec<f32>, sample: f32, count: u32) {
+    let mut index = 0u32;
+    while index < count {
+        audio.push(sample);
+        index += 1;
     }
 }
 

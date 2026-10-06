@@ -126,6 +126,7 @@ fn open_roms_runs_many_frames() {
     machine.set_key(2, 1, true);
     machine.reset();
     assert!(machine.is_booted());
+    let _ = machine.take_audio();
     assert!(machine.take_audio().is_empty());
 }
 

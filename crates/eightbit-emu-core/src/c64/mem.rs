@@ -1,5 +1,7 @@
 use crate::error::CoreError;
 
+use super::sid::Sid;
+
 const RAM: usize = 65536;
 const BASIC_LEN: usize = 8192;
 const KERNAL_LEN: usize = 8192;
@@ -16,6 +18,7 @@ pub struct Map {
     ddr: u8,
     port: u8,
     pub vic: [u8; 64],
+    pub sid: Sid,
     raster_y: u16,
     line_cycle: u32,
     pub cia1: Cia1,
@@ -83,6 +86,7 @@ impl Map {
             ddr: 0x2F,
             port: 0x37,
             vic: [0; 64],
+            sid: Sid::default(),
             raster_y: 0,
             line_cycle: 0,
             cia1: Cia1::default(),
@@ -134,6 +138,7 @@ impl Map {
     pub fn tick(&mut self, cycles: u32) {
         advance_raster(self, cycles);
         tick_timer_a(&mut self.cia1, cycles);
+        self.sid.tick(cycles);
     }
 
     pub fn read(&mut self, address: u16) -> u8 {
@@ -216,6 +221,7 @@ fn underflow_timer_a(cia: &mut Cia1) {
 fn read_io(map: &mut Map, address: u16) -> u8 {
     match address {
         0xD000..=0xD3FF => read_vic(map, address),
+        0xD400..=0xD7FF => map.sid.read(address),
         0xD800..=0xDBFF => map.color[usize::from(address - 0xD800)] | 0xF0,
         0xDC00..=0xDCFF => read_cia1(map, address),
         0xDD00..=0xDDFF => read_cia2(map, address),
@@ -226,6 +232,7 @@ fn read_io(map: &mut Map, address: u16) -> u8 {
 fn write_io(map: &mut Map, address: u16, value: u8) {
     match address {
         0xD000..=0xD3FF => map.vic[usize::from(address & 0x3F)] = value,
+        0xD400..=0xD7FF => map.sid.write(address, value),
         0xD800..=0xDBFF => map.color[usize::from(address - 0xD800)] = value & 0x0F,
         0xDC00..=0xDCFF => write_cia1(map, address, value),
         0xDD00..=0xDDFF => write_cia2(map, address, value),
