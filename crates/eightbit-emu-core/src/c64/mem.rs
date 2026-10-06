@@ -1,6 +1,7 @@
 use crate::error::CoreError;
 
 use super::sid::Sid;
+use super::sprites;
 
 const RAM: usize = 65536;
 const BASIC_LEN: usize = 8192;
@@ -8,6 +9,18 @@ const KERNAL_LEN: usize = 8192;
 const CHARGEN_LEN: usize = 4096;
 const LINE_CYCLES: u32 = 63;
 const RASTER_LINES: u16 = 312;
+
+#[derive(Clone, Copy, Debug)]
+pub struct SpriteDraw {
+    pub x: i32,
+    pub y: u8,
+    pub base: u16,
+    pub color: u8,
+    pub multi: bool,
+    pub x_exp: bool,
+    pub y_exp: bool,
+    pub index: u8,
+}
 
 pub struct Map {
     ram: Vec<u8>,
@@ -20,8 +33,9 @@ pub struct Map {
     pub vic: [u8; 64],
     pub sid: Sid,
     vic_irr: u8,
-    raster_y: u16,
+    pub raster_y: u16,
     line_cycle: u32,
+    pub sprite_draws: Vec<SpriteDraw>,
     pub cia1: Cia1,
     pub cia2: CiaPorts,
 }
@@ -91,6 +105,7 @@ impl Map {
             vic_irr: 0,
             raster_y: 0,
             line_cycle: 0,
+            sprite_draws: Vec::new(),
             cia1: Cia1::default(),
             cia2: CiaPorts::default(),
         }
@@ -206,7 +221,11 @@ fn advance_raster(map: &mut Map, cycles: u32) {
         if map.raster_y >= RASTER_LINES {
             map.raster_y = 0;
         }
+        if map.raster_y == 1 {
+            map.sprite_draws.clear();
+        }
         maybe_raster_irq(map);
+        sprites::latch_line(map);
     }
 }
 

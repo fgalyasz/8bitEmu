@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.9 — 2026-10-06
+
+- C64 sprites latch X/pointer/color when the raster hits their Y, so multiplexed title figures (e.g. Monty) draw correctly instead of end-of-frame snow.
+
 ## 0.9.8 — 2026-10-06
 
 - C64 VIC bitmap modes paint, and the raster compare IRQ fires. Bitmap title screens no longer look like letter soup or hang waiting for `$D019`.
