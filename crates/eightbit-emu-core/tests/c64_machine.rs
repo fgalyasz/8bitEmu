@@ -106,6 +106,7 @@ fn presenter_loads_open_roms_defaults_shape() {
         .expect("roms");
     assert!(presenter.is_c64());
     assert!(presenter.is_booted());
+    assert!(presenter.hears_loading());
     let frame = presenter.on_display_tick().expect("tick");
     assert_eq!(frame.width, 384);
     assert_eq!(frame.height, 264);

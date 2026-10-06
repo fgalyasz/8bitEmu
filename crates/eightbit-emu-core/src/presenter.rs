@@ -205,7 +205,7 @@ impl Presenter {
     pub fn hears_loading(&self) -> bool {
         match &self.host {
             Host::Spectrum(machine) => machine.hears_loading(),
-            Host::C64(_) => false,
+            Host::C64(_) => true,
         }
     }
 

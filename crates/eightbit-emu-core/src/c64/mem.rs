@@ -16,10 +16,11 @@ pub struct SpriteDraw {
     pub y: u8,
     pub base: u16,
     pub color: u8,
+    pub mc1: u8,
+    pub mc2: u8,
     pub multi: bool,
     pub x_exp: bool,
     pub y_exp: bool,
-    pub index: u8,
 }
 
 pub struct Map {

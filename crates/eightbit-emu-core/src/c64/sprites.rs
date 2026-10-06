@@ -49,10 +49,11 @@ fn capture(map: &Map, index: u8) -> SpriteDraw {
         y: map.vic[usize::from(index) * 2 + 1],
         base: map.vic_bank() + u16::from(pointer) * 64,
         color: map.vic[0x27 + usize::from(index)] & 0x0F,
+        mc1: map.vic[0x25] & 0x0F,
+        mc2: map.vic[0x26] & 0x0F,
         multi: map.vic[0x1C] & bit != 0,
         x_exp: map.vic[0x1D] & bit != 0,
         y_exp: map.vic[0x17] & bit != 0,
-        index,
     }
 }
 
@@ -115,8 +116,9 @@ fn emit_row(
     y: i32,
     flags: (bool, bool, bool),
 ) {
+    let _ = map;
     if flags.0 {
-        put_multi(map, pixels, draw.index, row, x0, y, flags.1);
+        put_multi(pixels, draw, row, x0, y, flags.1);
         return;
     }
     put_hires(pixels, row, x0, y, draw.color, flags.1);
@@ -128,10 +130,10 @@ fn put_hires(pixels: &mut [u8], row: &[u8], x0: i32, y: i32, color: u8, x_exp: b
     put_bits(pixels, row[2], x0, y, color, x_exp, 16);
 }
 
-fn put_multi(map: &Map, pixels: &mut [u8], index: u8, row: &[u8], x0: i32, y: i32, x_exp: bool) {
-    put_pairs(map, pixels, index, row[0], x0, y, x_exp, 0);
-    put_pairs(map, pixels, index, row[1], x0, y, x_exp, 8);
-    put_pairs(map, pixels, index, row[2], x0, y, x_exp, 16);
+fn put_multi(pixels: &mut [u8], draw: &SpriteDraw, row: &[u8], x0: i32, y: i32, x_exp: bool) {
+    put_pairs(pixels, draw, row[0], x0, y, x_exp, 0);
+    put_pairs(pixels, draw, row[1], x0, y, x_exp, 8);
+    put_pairs(pixels, draw, row[2], x0, y, x_exp, 16);
 }
 
 fn put_bits(pixels: &mut [u8], byte: u8, x0: i32, y: i32, color: u8, x_exp: bool, offset: i32) {
@@ -145,9 +147,8 @@ fn put_bits(pixels: &mut [u8], byte: u8, x0: i32, y: i32, color: u8, x_exp: bool
 }
 
 fn put_pairs(
-    map: &Map,
     pixels: &mut [u8],
-    index: u8,
+    draw: &SpriteDraw,
     byte: u8,
     x0: i32,
     y: i32,
@@ -156,15 +157,14 @@ fn put_pairs(
 ) {
     let mut pair = 0i32;
     while pair < 4 {
-        paint_pair(map, pixels, index, byte, x0, y, x_exp, offset, pair);
+        paint_pair(pixels, draw, byte, x0, y, x_exp, offset, pair);
         pair += 1;
     }
 }
 
 fn paint_pair(
-    map: &Map,
     pixels: &mut [u8],
-    index: u8,
+    draw: &SpriteDraw,
     byte: u8,
     x0: i32,
     y: i32,
@@ -173,18 +173,18 @@ fn paint_pair(
     pair: i32,
 ) {
     let code = (byte >> (6 - pair * 2)) & 0x03;
-    let Some(color) = multi_color(map, index, code) else {
+    let Some(color) = multi_color(draw, code) else {
         return;
     };
     plot_pixel(pixels, x0, y, color, x_exp, offset + pair * 2);
     plot_pixel(pixels, x0, y, color, x_exp, offset + pair * 2 + 1);
 }
 
-fn multi_color(map: &Map, index: u8, code: u8) -> Option<u8> {
+fn multi_color(draw: &SpriteDraw, code: u8) -> Option<u8> {
     match code {
-        1 => Some(map.vic[0x25] & 0x0F),
-        2 => Some(map.vic[0x27 + usize::from(index)] & 0x0F),
-        3 => Some(map.vic[0x26] & 0x0F),
+        1 => Some(draw.mc1),
+        2 => Some(draw.color),
+        3 => Some(draw.mc2),
         _ => None,
     }
 }

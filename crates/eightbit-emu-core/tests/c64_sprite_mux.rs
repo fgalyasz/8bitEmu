@@ -23,6 +23,24 @@ fn live_paint_still_works_without_raster() {
     assert_eq!(content_pixel(&frame, 0, 0), 0x07);
 }
 
+#[test]
+fn latched_multicolor_keeps_shared_colors() {
+    let mut machine = blank_machine();
+    machine.write_ram(0x2000, 0b01001011);
+    place_sprite(&mut machine, 0, 24, 50, 0x80, 0x0C);
+    machine.poke_io(0xD025, 0x0B);
+    machine.poke_io(0xD026, 0x01);
+    machine.poke_io(0xD01C, 0x01);
+    machine.poke_io(0xD015, 0x01);
+    run_past_line(&mut machine, 50);
+    machine.poke_io(0xD025, 0x02);
+    machine.poke_io(0xD027, 0x00);
+    let frame = machine.paint().expect("paint");
+    assert_eq!(content_pixel(&frame, 0, 0), 0x0B);
+    assert_eq!(content_pixel(&frame, 4, 0), 0x0C);
+    assert_eq!(content_pixel(&frame, 6, 0), 0x01);
+}
+
 fn run_past_line(machine: &mut C64Machine, line: u8) {
     let mut steps = 0u32;
     while steps < 100_000 {

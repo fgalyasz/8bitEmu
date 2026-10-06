@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.10 — 2026-10-06
+
+- C64 SID audio reaches the speaker. Multiplexed multicolor sprites keep `$D025`/`$D026` and the sprite color from the latch line (Monty’s gray figure).
+
 ## 0.9.9 — 2026-10-06
 
 - C64 sprites latch X/pointer/color when the raster hits their Y, so multiplexed title figures (e.g. Monty) draw correctly instead of end-of-frame snow.
