@@ -55,6 +55,9 @@ pub fn step(cpu: &mut Cpu, bus: &mut impl Bus) -> Result<u32, CoreError> {
 }
 
 fn execute(cpu: &mut Cpu, bus: &mut impl Bus, opcode: u8) -> Result<u32, CoreError> {
+    if let Some(cycles) = try_illegal_nop(cpu, bus, opcode) {
+        return Ok(cycles);
+    }
     let entry = OPCODES[opcode as usize];
     if entry.kind == OpKind::Illegal {
         return Err(CoreError::Opcode { opcode });
@@ -62,6 +65,47 @@ fn execute(cpu: &mut Cpu, bus: &mut impl Bus, opcode: u8) -> Result<u32, CoreErr
     let mut cycles = entry.base_cycles as u32;
     cycles += run(cpu, bus, entry)?;
     Ok(cycles)
+}
+
+fn try_illegal_nop(cpu: &mut Cpu, bus: &mut impl Bus, opcode: u8) -> Option<u32> {
+    match opcode {
+        0x1A | 0x3A | 0x5A | 0x7A | 0xDA | 0xFA => Some(2),
+        0x80 | 0x82 | 0x89 | 0xC2 | 0xE2 => {
+            let _ = fetch(cpu, bus);
+            Some(2)
+        }
+        0x04 | 0x44 | 0x64 => Some(nop_zp(cpu, bus, 3)),
+        0x14 | 0x34 | 0x54 | 0x74 | 0xD4 | 0xF4 => Some(nop_zpx(cpu, bus, 4)),
+        0x0C => Some(nop_abs(cpu, bus, 4)),
+        0x1C | 0x3C | 0x5C | 0x7C | 0xDC | 0xFC => Some(nop_absx(cpu, bus, 4)),
+        _ => None,
+    }
+}
+
+fn nop_zp(cpu: &mut Cpu, bus: &mut impl Bus, cycles: u32) -> u32 {
+    let addr = u16::from(fetch(cpu, bus));
+    let _ = bus.read(addr);
+    cycles
+}
+
+fn nop_zpx(cpu: &mut Cpu, bus: &mut impl Bus, cycles: u32) -> u32 {
+    let base = u16::from(fetch(cpu, bus));
+    let addr = base.wrapping_add(u16::from(cpu.x)) & 0xFF;
+    let _ = bus.read(addr);
+    cycles
+}
+
+fn nop_abs(cpu: &mut Cpu, bus: &mut impl Bus, cycles: u32) -> u32 {
+    let addr = fetch16(cpu, bus);
+    let _ = bus.read(addr);
+    cycles
+}
+
+fn nop_absx(cpu: &mut Cpu, bus: &mut impl Bus, cycles: u32) -> u32 {
+    let base = fetch16(cpu, bus);
+    let addr = base.wrapping_add(u16::from(cpu.x));
+    let _ = bus.read(addr);
+    cycles + u32::from(page_cross(base, addr))
 }
 
 fn run(cpu: &mut Cpu, bus: &mut impl Bus, entry: OpEntry) -> Result<u32, CoreError> {

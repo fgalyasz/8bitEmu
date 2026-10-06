@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.12 — 2026-10-06
+
+- C64 undocumented NOP opcodes (`$1A`, `$80`, `$FC`, …) execute instead of trapping.
+
 ## 0.9.11 — 2026-10-06
 
 - C64 sprites respect VIC priority: lower sprite index draws in front.

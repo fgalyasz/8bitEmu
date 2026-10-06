@@ -70,6 +70,19 @@ fn illegal_opcode_returns_error() {
 }
 
 #[test]
+fn illegal_nop_absx_skips_operand() {
+    let mut cpu = Cpu::default();
+    let mut bus = FakeBus::new();
+    bus.load(0, &[0xFC, 0x00, 0x10, 0xA9, 0x55]);
+    cpu.pc = 0;
+    let cycles = step(&mut cpu, &mut bus).expect("nop");
+    assert!(cycles >= 4);
+    assert_eq!(cpu.pc, 3);
+    step(&mut cpu, &mut bus).expect("lda");
+    assert_eq!(cpu.a, 0x55);
+}
+
+#[test]
 fn jsr_and_rts() {
     let mut cpu = Cpu::default();
     let mut bus = FakeBus::new();
