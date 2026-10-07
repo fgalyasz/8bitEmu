@@ -18,6 +18,12 @@ pub struct Launch {
     pub chargen: Option<String>,
 }
 
+#[derive(Debug)]
+pub enum LaunchMode {
+    Launcher,
+    Boot(Launch),
+}
+
 pub struct Session {
     pub machine: MachineKind,
     pub model_128: bool,
@@ -28,6 +34,35 @@ pub struct Session {
     pub kernal: Option<Vec<u8>>,
     pub basic: Option<Vec<u8>>,
     pub chargen: Option<Vec<u8>>,
+}
+
+pub fn parse_mode(args: &[String]) -> Result<LaunchMode, String> {
+    if wants_boot(args) {
+        return Ok(LaunchMode::Boot(parse_launch(args)?));
+    }
+    if let Some(error) = launcher_arg_error(args) {
+        return Err(error);
+    }
+    Ok(LaunchMode::Launcher)
+}
+
+pub fn wants_boot(args: &[String]) -> bool {
+    args.iter().any(|arg| is_boot_flag(arg))
+}
+
+pub fn session_from_launch(launch: Launch) -> Result<Session, String> {
+    let tape = choose_tape(launch.tzx, launch.tap)?;
+    Ok(Session {
+        machine: launch.machine,
+        model_128: launch.model_128,
+        rom: read_optional(launch.rom)?,
+        sna: read_optional(launch.sna)?,
+        tape,
+        prg: read_optional(launch.prg)?,
+        kernal: read_optional(launch.kernal)?,
+        basic: read_optional(launch.basic)?,
+        chargen: read_optional(launch.chargen)?,
+    })
 }
 
 pub fn parse_launch(args: &[String]) -> Result<Launch, String> {
@@ -50,6 +85,35 @@ pub fn parse_launch(args: &[String]) -> Result<Launch, String> {
     apply_prg_machine(&mut launch);
     apply_c64_defaults(&mut launch);
     Ok(launch)
+}
+
+fn is_boot_flag(arg: &str) -> bool {
+    matches!(
+        arg,
+        "--machine"
+            | "--rom"
+            | "--sna"
+            | "--tap"
+            | "--tzx"
+            | "--prg"
+            | "--kernal"
+            | "--basic"
+            | "--chargen"
+    )
+}
+
+fn launcher_arg_error(args: &[String]) -> Option<String> {
+    let mut index = 0;
+    while index < args.len() {
+        match args[index].as_str() {
+            "--model" => match next_value(args, index, "--model").and_then(model_flag) {
+                Ok(_) => index += 2,
+                Err(error) => return Some(error),
+            },
+            other => return Some(format!("unknown argument {other}")),
+        }
+    }
+    None
 }
 
 fn apply_prg_machine(launch: &mut Launch) {
@@ -131,4 +195,21 @@ fn next_value<'a>(args: &'a [String], index: usize, flag: &str) -> Result<&'a st
     args.get(index + 1)
         .map(String::as_str)
         .ok_or_else(|| format!("missing value for {flag}"))
+}
+
+fn choose_tape(tzx: Option<String>, tap: Option<String>) -> Result<Option<Vec<u8>>, String> {
+    if let Some(path) = tzx {
+        return read_optional(Some(path));
+    }
+    read_optional(tap)
+}
+
+fn read_optional(path: Option<String>) -> Result<Option<Vec<u8>>, String> {
+    let Some(path) = path else {
+        return Ok(None);
+    };
+    match std::fs::read(&path) {
+        Ok(bytes) => Ok(Some(bytes)),
+        Err(error) => Err(format!("{path}: {error}")),
+    }
 }

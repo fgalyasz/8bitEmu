@@ -1,7 +1,11 @@
+use crate::config::AppConfig;
 use crate::gpu::{GpuError, Present};
 use crate::keys::{c64_key, kempston_bit, quits, spectrum_key};
-use crate::launch::{MachineKind, Session};
-use crate::open_file::{self, MenuBar, OpenKind, PictureSize, SaveKind, OPEN_ID};
+use crate::launch::{session_from_launch, MachineKind, Session};
+use crate::open_file::{
+    self, MachineChoice, MenuBar, OpenKind, PictureSize, SaveKind, SettingsPath, MACHINE_START,
+    OPEN_ID,
+};
 use crate::pace::{due_ticks, CATCH_UP, DISPLAY_FRAME, TURBO_SLICE};
 use crate::speaker::Speaker;
 use eightbit_emu_core::{
@@ -17,10 +21,25 @@ use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::{Window, WindowId};
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum AppPhase {
+    Idle,
+    Running,
+}
+
+pub fn run_launcher() -> Result<(), GpuError> {
+    let config = AppConfig::load();
+    run_event_loop(App::launcher(config))
+}
+
 pub fn run(session: Session) -> Result<(), GpuError> {
     let model_128 = session.model_128;
     let c64 = session.machine == MachineKind::C64;
     let presenter = presenter_from(session)?;
+    run_event_loop(App::running(presenter, model_128, c64))
+}
+
+fn run_event_loop(mut app: App) -> Result<(), GpuError> {
     let event_loop = EventLoop::<muda::MenuEvent>::with_user_event()
         .build()
         .map_err(show_error)?;
@@ -28,7 +47,6 @@ pub fn run(session: Session) -> Result<(), GpuError> {
     muda::MenuEvent::set_event_handler(Some(move |event| {
         let _ = proxy.send_event(event);
     }));
-    let mut app = App::new(presenter, model_128, c64);
     event_loop.run_app(&mut app).map_err(show_error)
 }
 
@@ -47,6 +65,8 @@ struct App {
     picking: bool,
     next_tick: Instant,
     picture: Option<Frame>,
+    phase: AppPhase,
+    config: AppConfig,
 }
 
 struct SurfaceState {
@@ -56,7 +76,36 @@ struct SurfaceState {
 }
 
 impl App {
-    fn new(presenter: Presenter, model_128: bool, c64: bool) -> Self {
+    fn launcher(config: AppConfig) -> Self {
+        Self {
+            window: None,
+            state: None,
+            presenter: Presenter::new(PresentPace::Fixed60Hz),
+            speaker: Speaker::open(),
+            noted: None,
+            percent: None,
+            applying: false,
+            model_128: config.model_128,
+            c64: config.is_c64(),
+            modifiers: Modifiers::default(),
+            menu: None,
+            picking: false,
+            next_tick: Instant::now() - DISPLAY_FRAME,
+            picture: None,
+            phase: AppPhase::Idle,
+            config,
+        }
+    }
+
+    fn running(presenter: Presenter, model_128: bool, c64: bool) -> Self {
+        let mut config = AppConfig::load();
+        if c64 {
+            config.set_c64();
+        } else if model_128 {
+            config.set_spectrum_128();
+        } else {
+            config.set_spectrum_48();
+        }
         Self {
             window: None,
             state: None,
@@ -72,6 +121,8 @@ impl App {
             picking: false,
             next_tick: Instant::now() - DISPLAY_FRAME,
             picture: None,
+            phase: AppPhase::Running,
+            config,
         }
     }
 }
@@ -101,6 +152,18 @@ impl ApplicationHandler<muda::MenuEvent> for App {
             self.choose_file();
             return;
         }
+        if id == MACHINE_START {
+            self.start_machine();
+            return;
+        }
+        if let Some(choice) = open_file::machine_choice(id) {
+            self.apply_machine(choice);
+            return;
+        }
+        if let Some(path) = open_file::settings_path(id) {
+            self.pick_settings(path);
+            return;
+        }
         if let Some(size) = open_file::picture_size(id) {
             self.apply_picture(size);
             return;
@@ -123,17 +186,17 @@ impl ApplicationHandler<muda::MenuEvent> for App {
 
 impl App {
     fn open(&mut self, event_loop: &ActiveEventLoop) {
-        let Ok(window) = event_loop.create_window(window_attrs(&self.presenter)) else {
+        let Ok(window) = event_loop.create_window(window_attrs(self.phase, &self.presenter)) else {
             return;
         };
         let window = Arc::new(window);
         self.state = SurfaceState::new(window.clone()).ok();
-        self.menu = open_file::install_menu(&window);
+        self.menu = open_file::install_menu(&window, &self.config);
         self.window = Some(window);
     }
 
     fn choose_file(&mut self) {
-        if self.picking {
+        if self.phase != AppPhase::Running || self.picking {
             return;
         }
         self.picking = true;
@@ -142,6 +205,74 @@ impl App {
         if let Some(path) = path {
             self.load_path(&path);
         }
+    }
+
+    fn apply_machine(&mut self, choice: MachineChoice) {
+        match choice {
+            MachineChoice::Spectrum48 => self.config.set_spectrum_48(),
+            MachineChoice::Spectrum128 => self.config.set_spectrum_128(),
+            MachineChoice::C64 => self.config.set_c64(),
+        }
+        self.persist_config();
+        if let Some(menu) = &self.menu {
+            menu.sync_machine(&self.config);
+        }
+    }
+
+    fn pick_settings(&mut self, kind: SettingsPath) {
+        if self.picking {
+            return;
+        }
+        self.picking = true;
+        let path = open_file::pick_rom_path(self.window.as_deref(), kind);
+        self.picking = false;
+        let Some(path) = path else {
+            return;
+        };
+        self.apply_settings_path(kind, path.to_string_lossy().into_owned());
+    }
+
+    fn apply_settings_path(&mut self, kind: SettingsPath, path: String) {
+        match kind {
+            SettingsPath::SpectrumRom => self.config.spectrum_rom = path,
+            SettingsPath::Kernal => self.config.kernal = path,
+            SettingsPath::Basic => self.config.basic = path,
+            SettingsPath::Chargen => self.config.chargen = path,
+        }
+        self.persist_config();
+    }
+
+    fn persist_config(&mut self) {
+        if let Err(error) = self.config.save() {
+            eprintln!("8bitemu: {error}");
+        }
+    }
+
+    fn start_machine(&mut self) {
+        let launch = self.config.to_launch();
+        let session = match session_from_launch(launch) {
+            Ok(session) => session,
+            Err(error) => {
+                eprintln!("8bitemu: {error}");
+                return;
+            }
+        };
+        let model_128 = session.model_128;
+        let c64 = session.machine == MachineKind::C64;
+        let presenter = match presenter_from(session) {
+            Ok(presenter) => presenter,
+            Err(error) => {
+                eprintln!("8bitemu: {error}");
+                return;
+            }
+        };
+        self.presenter = presenter;
+        self.model_128 = model_128;
+        self.c64 = c64;
+        self.phase = AppPhase::Running;
+        self.picture = None;
+        self.next_tick = Instant::now() - DISPLAY_FRAME;
+        self.retitle();
     }
 
     fn load_path(&mut self, path: &std::path::Path) {
@@ -212,6 +343,12 @@ impl App {
             event_loop.exit();
             return;
         }
+        if down && self.start_shortcut(code) {
+            return;
+        }
+        if self.phase != AppPhase::Running {
+            return;
+        }
         if down && open_file::command_open(self.modifiers.state(), code) {
             self.choose_file();
             return;
@@ -246,6 +383,14 @@ impl App {
         hold_key_target(self, code, down);
     }
 
+    fn start_shortcut(&mut self, code: KeyCode) -> bool {
+        if !open_file::command_start(self.modifiers.state(), code) {
+            return false;
+        }
+        self.start_machine();
+        true
+    }
+
     fn select_look(&mut self, code: KeyCode) -> bool {
         let Some(look) = look_from_code(code) else {
             return false;
@@ -256,9 +401,14 @@ impl App {
     }
 
     fn retitle(&self) {
-        if let Some(window) = &self.window {
-            window.set_title(self.presenter.look().title());
+        let Some(window) = &self.window else {
+            return;
+        };
+        if self.phase == AppPhase::Idle {
+            window.set_title("8bitEmu");
+            return;
         }
+        window.set_title(self.presenter.look().title());
     }
 
     fn resize(&mut self, width: u32, height: u32) {
@@ -296,7 +446,7 @@ impl App {
     }
 
     fn save_as(&mut self, kind: SaveKind) {
-        if self.picking {
+        if self.phase != AppPhase::Running || self.picking {
             return;
         }
         match prepared_save(&self.presenter, kind) {
@@ -342,6 +492,10 @@ impl App {
     }
 
     fn redraw(&mut self) {
+        if self.phase == AppPhase::Idle {
+            self.clear_idle();
+            return;
+        }
         self.catch_up();
         let Some(frame) = self.picture.clone() else {
             return;
@@ -349,6 +503,15 @@ impl App {
         let look = self.presenter.look();
         let message = self.paint_message(&frame, look, self.percent);
         self.note_message(message);
+    }
+
+    fn clear_idle(&mut self) {
+        let Some(state) = self.state.as_mut() else {
+            return;
+        };
+        if let Err(error) = state.clear() {
+            self.note_message(Some(error.to_string()));
+        }
     }
 
     fn catch_up(&mut self) {
@@ -454,6 +617,11 @@ impl SurfaceState {
         self.present.present_surface(surface_texture);
         Ok(())
     }
+
+    fn clear(&mut self) -> Result<(), GpuError> {
+        let surface_texture = current_texture(&self.surface)?;
+        self.present.clear_surface(surface_texture)
+    }
 }
 
 fn present_device(present: &Present) -> &wgpu::Device {
@@ -469,9 +637,14 @@ fn picture_view(frame: &Frame, width: u32, height: u32, percent: Option<u32>) ->
     aspect_fit(src_w, src_h, width, height)
 }
 
-fn window_attrs(presenter: &Presenter) -> winit::window::WindowAttributes {
+fn window_attrs(phase: AppPhase, presenter: &Presenter) -> winit::window::WindowAttributes {
+    let title = if phase == AppPhase::Idle {
+        "8bitEmu"
+    } else {
+        presenter.look().title()
+    };
     winit::window::Window::default_attributes()
-        .with_title(presenter.look().title())
+        .with_title(title)
         .with_inner_size(LogicalSize::new(960.0, 720.0))
 }
 

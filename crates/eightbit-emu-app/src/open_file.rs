@@ -1,3 +1,4 @@
+use crate::config::AppConfig;
 use muda::accelerator::{Accelerator, Code, Modifiers, CMD_OR_CTRL};
 use muda::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
 use rfd::FileDialog;
@@ -11,10 +12,29 @@ pub const SAVE_TAP: &str = "save-tap";
 pub const SAVE_TZX: &str = "save-tzx";
 pub const SIZE_FIT: &str = "size-fit";
 pub const LOADING_SOUND: &str = "loading-sound";
+pub const MACHINE_48: &str = "machine-48";
+pub const MACHINE_128: &str = "machine-128";
+pub const MACHINE_C64: &str = "machine-c64";
+pub const MACHINE_START: &str = "machine-start";
+pub const SET_SPECTRUM_ROM: &str = "set-spectrum-rom";
+pub const SET_KERNAL: &str = "set-kernal";
+pub const SET_BASIC: &str = "set-basic";
+pub const SET_CHARGEN: &str = "set-chargen";
 
 pub struct MenuBar {
     pub menu: Menu,
     pub loading_sound: CheckMenuItem,
+    pub machine_48: CheckMenuItem,
+    pub machine_128: CheckMenuItem,
+    pub machine_c64: CheckMenuItem,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SettingsPath {
+    SpectrumRom,
+    Kernal,
+    Basic,
+    Chargen,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -59,6 +79,10 @@ pub fn sna_model_128(len: usize, current: bool) -> bool {
 
 pub fn command_open(state: ModifiersState, code: KeyCode) -> bool {
     code == KeyCode::KeyO && command_held(state)
+}
+
+pub fn command_start(state: ModifiersState, code: KeyCode) -> bool {
+    code == KeyCode::KeyR && command_held(state)
 }
 
 pub fn picture_size(id: &str) -> Option<PictureSize> {
@@ -108,8 +132,8 @@ pub fn pick_save(window: Option<&Window>, kind: SaveKind) -> Option<PathBuf> {
     parented(dialog, window).save_file()
 }
 
-pub fn install_menu(window: &Window) -> Option<MenuBar> {
-    let bar = build_menu().ok()?;
+pub fn install_menu(window: &Window, config: &AppConfig) -> Option<MenuBar> {
+    let bar = build_menu(config).ok()?;
     show_menu(window, &bar.menu);
     Some(bar)
 }
@@ -120,6 +144,39 @@ pub fn pick_path(window: Option<&Window>) -> Option<PathBuf> {
         .add_filter("Spectrum", &["rom", "sna", "tap", "tzx"])
         .add_filter("Commodore 64", &["prg"]);
     parented(dialog, window).pick_file()
+}
+
+pub fn pick_rom_path(window: Option<&Window>, kind: SettingsPath) -> Option<PathBuf> {
+    let dialog = FileDialog::new()
+        .set_title(kind.label())
+        .add_filter("ROM", &["rom", "bin"]);
+    parented(dialog, window).pick_file()
+}
+
+pub fn settings_path(id: &str) -> Option<SettingsPath> {
+    match id {
+        SET_SPECTRUM_ROM => Some(SettingsPath::SpectrumRom),
+        SET_KERNAL => Some(SettingsPath::Kernal),
+        SET_BASIC => Some(SettingsPath::Basic),
+        SET_CHARGEN => Some(SettingsPath::Chargen),
+        _ => None,
+    }
+}
+
+pub fn machine_choice(id: &str) -> Option<MachineChoice> {
+    match id {
+        MACHINE_48 => Some(MachineChoice::Spectrum48),
+        MACHINE_128 => Some(MachineChoice::Spectrum128),
+        MACHINE_C64 => Some(MachineChoice::C64),
+        _ => None,
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MachineChoice {
+    Spectrum48,
+    Spectrum128,
+    C64,
 }
 
 fn kind_for(ext: &str) -> Option<OpenKind> {
@@ -155,12 +212,49 @@ fn command_held(state: ModifiersState) -> bool {
     }
 }
 
-fn build_menu() -> muda::Result<MenuBar> {
+fn build_menu(config: &AppConfig) -> muda::Result<MenuBar> {
     let file = file_menu()?;
+    let (machine, machine_48, machine_128, machine_c64) = machine_menu(config)?;
+    let settings = settings_menu()?;
     let view = view_menu()?;
     let (sound, loading_sound) = sound_menu()?;
-    let menu = menu_bar(&file, &view, &sound)?;
-    Ok(MenuBar { menu, loading_sound })
+    let menu = menu_bar(&file, &machine, &settings, &view, &sound)?;
+    Ok(MenuBar {
+        menu,
+        loading_sound,
+        machine_48,
+        machine_128,
+        machine_c64,
+    })
+}
+
+fn machine_menu(
+    config: &AppConfig,
+) -> muda::Result<(Submenu, CheckMenuItem, CheckMenuItem, CheckMenuItem)> {
+    let machine_48 = CheckMenuItem::with_id(MACHINE_48, "Spectrum 48K", true, config.is_spectrum_48(), None);
+    let machine_128 =
+        CheckMenuItem::with_id(MACHINE_128, "Spectrum 128K", true, config.is_spectrum_128(), None);
+    let machine_c64 = CheckMenuItem::with_id(MACHINE_C64, "Commodore 64", true, config.is_c64(), None);
+    let start = MenuItem::with_id(MACHINE_START, "Start", true, Some(start_accelerator()));
+    let separator = PredefinedMenuItem::separator();
+    let menu = Submenu::with_items(
+        "Machine",
+        true,
+        &[&machine_48, &machine_128, &machine_c64, &separator, &start],
+    )?;
+    Ok((menu, machine_48, machine_128, machine_c64))
+}
+
+fn settings_menu() -> muda::Result<Submenu> {
+    let spectrum = MenuItem::with_id(SET_SPECTRUM_ROM, "Spectrum ROM…", true, None);
+    let kernal = MenuItem::with_id(SET_KERNAL, "C64 Kernal…", true, None);
+    let basic = MenuItem::with_id(SET_BASIC, "C64 BASIC…", true, None);
+    let chargen = MenuItem::with_id(SET_CHARGEN, "C64 Chargen…", true, None);
+    Submenu::with_items("Settings", true, &[&spectrum, &kernal, &basic, &chargen])
+}
+
+fn start_accelerator() -> Accelerator {
+    Accelerator::new(CMD_OR_CTRL, Code::KeyR)
 }
 
 fn file_menu() -> muda::Result<Submenu> {
@@ -215,14 +309,20 @@ fn sound_key() -> Accelerator {
     Accelerator::new(Modifiers::empty(), Code::F4)
 }
 
-fn menu_bar(file: &Submenu, view: &Submenu, sound: &Submenu) -> muda::Result<Menu> {
+fn menu_bar(
+    file: &Submenu,
+    machine: &Submenu,
+    settings: &Submenu,
+    view: &Submenu,
+    sound: &Submenu,
+) -> muda::Result<Menu> {
     #[cfg(target_os = "macos")]
     {
         let app = Submenu::with_items("8bitEmu", true, &[&PredefinedMenuItem::quit(None)])?;
-        return Menu::with_items(&[&app, file, view, sound]);
+        return Menu::with_items(&[&app, file, machine, settings, view, sound]);
     }
     #[cfg(not(target_os = "macos"))]
-    Menu::with_items(&[file, view, sound])
+    Menu::with_items(&[file, machine, settings, view, sound])
 }
 
 fn show_menu(window: &Window, menu: &Menu) {
@@ -270,6 +370,25 @@ impl PictureSize {
             Self::Fit => None,
             Self::Percent(percent) => Some(percent),
         }
+    }
+}
+
+impl SettingsPath {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::SpectrumRom => "Spectrum ROM",
+            Self::Kernal => "C64 Kernal",
+            Self::Basic => "C64 BASIC",
+            Self::Chargen => "C64 Chargen",
+        }
+    }
+}
+
+impl MenuBar {
+    pub fn sync_machine(&self, config: &AppConfig) {
+        self.machine_48.set_checked(config.is_spectrum_48());
+        self.machine_128.set_checked(config.is_spectrum_128());
+        self.machine_c64.set_checked(config.is_c64());
     }
 }
 

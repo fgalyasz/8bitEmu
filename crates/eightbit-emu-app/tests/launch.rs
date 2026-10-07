@@ -1,5 +1,25 @@
-use eightbit_emu_app::{c64_key, kempston_bit, parse_launch, quits, spectrum_key, MachineKind};
+use eightbit_emu_app::{
+    c64_key, kempston_bit, parse_launch, parse_mode, quits, spectrum_key, wants_boot, LaunchMode,
+    MachineKind,
+};
 use winit::keyboard::KeyCode;
+
+#[test]
+fn empty_args_open_the_launcher() {
+    let mode = parse_mode(&[]).expect("mode");
+    assert!(matches!(mode, LaunchMode::Launcher));
+    assert!(!wants_boot(&[]));
+    let model_only = parse_mode(&args(&["--model", "128"])).expect("model");
+    assert!(matches!(model_only, LaunchMode::Launcher));
+}
+
+#[test]
+fn boot_flags_skip_the_launcher() {
+    let mode = parse_mode(&args(&["--machine", "c64"])).expect("mode");
+    assert!(matches!(mode, LaunchMode::Boot(_)));
+    assert!(wants_boot(&args(&["--prg", "demo.prg"])));
+    assert!(wants_boot(&args(&["--rom", "48.rom"])));
+}
 
 #[test]
 fn flags_select_the_model_and_the_image_paths() {

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.13 — 2026-10-07
+
+- Empty launch opens a shared shell window. Machine (Spectrum 48K/128K or C64) and ROM paths live under the menu and persist; Start boots that machine in the same window. CLI boot args still skip the launcher.
+
 ## 0.9.12 — 2026-10-06
 
 - C64 undocumented NOP opcodes (`$1A`, `$80`, `$FC`, …) execute instead of trapping.

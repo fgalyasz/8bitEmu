@@ -1,49 +1,30 @@
-use eightbit_emu_app::{Launch, Session};
+use eightbit_emu_app::LaunchMode;
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    let launch = match eightbit_emu_app::parse_launch(&args) {
-        Ok(launch) => launch,
+    let mode = match eightbit_emu_app::parse_mode(&args) {
+        Ok(mode) => mode,
         Err(error) => fail(error),
     };
-    let session = match session_from(launch) {
+    match mode {
+        LaunchMode::Launcher => run_launcher(),
+        LaunchMode::Boot(launch) => run_boot(launch),
+    }
+}
+
+fn run_launcher() {
+    if let Err(error) = eightbit_emu_app::run_launcher() {
+        fail(error.to_string());
+    }
+}
+
+fn run_boot(launch: eightbit_emu_app::Launch) {
+    let session = match eightbit_emu_app::session_from_launch(launch) {
         Ok(session) => session,
         Err(error) => fail(error),
     };
     if let Err(error) = eightbit_emu_app::run(session) {
         fail(error.to_string());
-    }
-}
-
-fn session_from(launch: Launch) -> Result<Session, String> {
-    let tape = choose_tape(launch.tzx, launch.tap)?;
-    Ok(Session {
-        machine: launch.machine,
-        model_128: launch.model_128,
-        rom: read_optional(launch.rom)?,
-        sna: read_optional(launch.sna)?,
-        tape,
-        prg: read_optional(launch.prg)?,
-        kernal: read_optional(launch.kernal)?,
-        basic: read_optional(launch.basic)?,
-        chargen: read_optional(launch.chargen)?,
-    })
-}
-
-fn choose_tape(tzx: Option<String>, tap: Option<String>) -> Result<Option<Vec<u8>>, String> {
-    if let Some(path) = tzx {
-        return read_optional(Some(path));
-    }
-    read_optional(tap)
-}
-
-fn read_optional(path: Option<String>) -> Result<Option<Vec<u8>>, String> {
-    let Some(path) = path else {
-        return Ok(None);
-    };
-    match std::fs::read(&path) {
-        Ok(bytes) => Ok(Some(bytes)),
-        Err(error) => Err(format!("{path}: {error}")),
     }
 }
 

@@ -94,6 +94,28 @@ impl Present {
         self.queue.present(texture);
     }
 
+    pub fn clear_surface(&self, texture: wgpu::SurfaceTexture) -> Result<(), GpuError> {
+        let view = texture
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
+        {
+            let _pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("eightbit-emu-clear"),
+                color_attachments: &[Some(color_attachment(&view))],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+                multiview_mask: None,
+            });
+        }
+        self.queue.submit([encoder.finish()]);
+        self.present_surface(texture);
+        Ok(())
+    }
+
     pub fn readback(
         &self,
         frame: &Frame,
