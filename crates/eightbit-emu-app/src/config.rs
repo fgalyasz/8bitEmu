@@ -1,20 +1,23 @@
 use crate::launch::{Launch, MachineKind};
+use crate::open_file::OpenKind;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-const DEFAULT_SPECTRUM_ROM: &str = "roms/spectrum-48.rom";
-const DEFAULT_KERNAL: &str = "roms/c64-kernal.rom";
-const DEFAULT_BASIC: &str = "roms/c64-basic.rom";
-const DEFAULT_CHARGEN: &str = "roms/c64-chargen.rom";
+pub const NAME_SPECTRUM_48: &str = "spectrum-48.rom";
+pub const NAME_SPECTRUM_128: &str = "spectrum-128.rom";
+pub const NAME_KERNAL: &str = "c64-kernal.rom";
+pub const NAME_BASIC: &str = "c64-basic.rom";
+pub const NAME_CHARGEN: &str = "c64-chargen.rom";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AppConfig {
     pub machine: MachineKind,
     pub model_128: bool,
-    pub spectrum_rom: String,
-    pub kernal: String,
-    pub basic: String,
-    pub chargen: String,
+    pub rom_folder: Option<String>,
+    pub spectrum_rom: Option<String>,
+    pub kernal: Option<String>,
+    pub basic: Option<String>,
+    pub chargen: Option<String>,
 }
 
 impl Default for AppConfig {
@@ -22,10 +25,11 @@ impl Default for AppConfig {
         Self {
             machine: MachineKind::Spectrum,
             model_128: false,
-            spectrum_rom: DEFAULT_SPECTRUM_ROM.to_string(),
-            kernal: DEFAULT_KERNAL.to_string(),
-            basic: DEFAULT_BASIC.to_string(),
-            chargen: DEFAULT_CHARGEN.to_string(),
+            rom_folder: None,
+            spectrum_rom: None,
+            kernal: None,
+            basic: None,
+            chargen: None,
         }
     }
 }
@@ -65,35 +69,44 @@ impl AppConfig {
         self.machine == MachineKind::C64
     }
 
-    pub fn to_launch(&self) -> Launch {
-        Launch {
-            machine: self.machine,
-            model_128: self.model_128,
-            rom: spectrum_rom_slot(self),
-            sna: None,
-            tap: None,
-            tzx: None,
-            prg: None,
-            kernal: c64_path(self, &self.kernal),
-            basic: c64_path(self, &self.basic),
-            chargen: c64_path(self, &self.chargen),
+    pub fn apply_open_kind(&mut self, kind: OpenKind, len: usize) {
+        match kind {
+            OpenKind::Prg => self.set_c64(),
+            OpenKind::Rom => {
+                self.set_spectrum_from_rom_len(len);
+            }
+            OpenKind::Sna => {
+                self.set_spectrum_from_sna_len(len);
+            }
+            OpenKind::Tape => {
+                if self.machine != MachineKind::Spectrum {
+                    self.set_spectrum_48();
+                }
+            }
         }
     }
-}
 
-fn spectrum_rom_slot(config: &AppConfig) -> Option<String> {
-    if config.machine == MachineKind::Spectrum {
-        Some(config.spectrum_rom.clone())
-    } else {
-        None
+    pub fn to_launch(&self) -> Result<Launch, String> {
+        match self.machine {
+            MachineKind::Spectrum => spectrum_launch(self),
+            MachineKind::C64 => c64_launch(self),
+        }
     }
-}
 
-fn c64_path(config: &AppConfig, path: &str) -> Option<String> {
-    if config.machine == MachineKind::C64 {
-        Some(path.to_string())
-    } else {
-        None
+    fn set_spectrum_from_rom_len(&mut self, len: usize) {
+        if len == 32 * 1024 {
+            self.set_spectrum_128();
+        } else {
+            self.set_spectrum_48();
+        }
+    }
+
+    fn set_spectrum_from_sna_len(&mut self, len: usize) {
+        if len == 131_103 {
+            self.set_spectrum_128();
+        } else {
+            self.set_spectrum_48();
+        }
     }
 }
 
@@ -120,19 +133,112 @@ pub fn parse_config(text: &str) -> AppConfig {
 }
 
 pub fn format_config(config: &AppConfig) -> String {
-    format!(
-        "machine={}\nmodel={}\nspectrum_rom={}\nkernal={}\nbasic={}\nchargen={}\n",
-        machine_name(config.machine),
-        model_name(config.model_128),
-        config.spectrum_rom,
-        config.kernal,
-        config.basic,
-        config.chargen,
-    )
+    let mut lines = vec![
+        format!("machine={}", machine_name(config.machine)),
+        format!("model={}", model_name(config.model_128)),
+    ];
+    push_opt(&mut lines, "rom_folder", config.rom_folder.as_deref());
+    push_opt(&mut lines, "spectrum_rom", config.spectrum_rom.as_deref());
+    push_opt(&mut lines, "kernal", config.kernal.as_deref());
+    push_opt(&mut lines, "basic", config.basic.as_deref());
+    push_opt(&mut lines, "chargen", config.chargen.as_deref());
+    lines.push(String::new());
+    lines.join("\n")
 }
 
 pub fn config_path() -> PathBuf {
     config_dir().join("config.txt")
+}
+
+pub fn discover_rom(name: &str, rom_folder: Option<&str>) -> Option<PathBuf> {
+    for root in rom_roots(rom_folder) {
+        let path = root.join(name);
+        if path.is_file() {
+            return Some(path);
+        }
+    }
+    None
+}
+
+pub fn resolve_existing(override_path: Option<&str>, name: &str, folder: Option<&str>) -> Option<PathBuf> {
+    if let Some(path) = override_path {
+        let candidate = PathBuf::from(path);
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+    }
+    discover_rom(name, folder)
+}
+
+fn spectrum_launch(config: &AppConfig) -> Result<Launch, String> {
+    let name = spectrum_rom_name(config.model_128);
+    let rom = resolve_existing(
+        config.spectrum_rom.as_deref(),
+        name,
+        config.rom_folder.as_deref(),
+    )
+    .ok_or_else(|| missing_rom(name))?;
+    Ok(Launch {
+        machine: MachineKind::Spectrum,
+        model_128: config.model_128,
+        rom: Some(rom.to_string_lossy().into_owned()),
+        sna: None,
+        tap: None,
+        tzx: None,
+        prg: None,
+        kernal: None,
+        basic: None,
+        chargen: None,
+    })
+}
+
+fn c64_launch(config: &AppConfig) -> Result<Launch, String> {
+    let folder = config.rom_folder.as_deref();
+    let kernal = resolve_existing(config.kernal.as_deref(), NAME_KERNAL, folder)
+        .ok_or_else(|| missing_rom(NAME_KERNAL))?;
+    let basic = resolve_existing(config.basic.as_deref(), NAME_BASIC, folder)
+        .ok_or_else(|| missing_rom(NAME_BASIC))?;
+    let chargen = resolve_existing(config.chargen.as_deref(), NAME_CHARGEN, folder)
+        .ok_or_else(|| missing_rom(NAME_CHARGEN))?;
+    Ok(Launch {
+        machine: MachineKind::C64,
+        model_128: false,
+        rom: None,
+        sna: None,
+        tap: None,
+        tzx: None,
+        prg: None,
+        kernal: Some(kernal.to_string_lossy().into_owned()),
+        basic: Some(basic.to_string_lossy().into_owned()),
+        chargen: Some(chargen.to_string_lossy().into_owned()),
+    })
+}
+
+fn spectrum_rom_name(model_128: bool) -> &'static str {
+    if model_128 {
+        NAME_SPECTRUM_128
+    } else {
+        NAME_SPECTRUM_48
+    }
+}
+
+fn missing_rom(name: &str) -> String {
+    format!("missing ROM {name} (set Settings → ROM Folder… or place files in roms/)")
+}
+
+fn rom_roots(rom_folder: Option<&str>) -> Vec<PathBuf> {
+    let mut roots = Vec::new();
+    if let Some(folder) = rom_folder {
+        roots.push(PathBuf::from(folder));
+    }
+    roots.push(PathBuf::from("roms"));
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            roots.push(dir.join("roms"));
+        }
+    }
+    roots.push(config_dir().join("roms"));
+    roots
 }
 
 fn config_dir() -> PathBuf {
@@ -175,13 +281,18 @@ fn apply_line(config: &mut AppConfig, line: &str) {
     let Some((key, value)) = trimmed.split_once('=') else {
         return;
     };
+    let value = value.trim();
+    if value.is_empty() {
+        return;
+    }
     match key.trim() {
-        "machine" => apply_machine(config, value.trim()),
-        "model" => apply_model(config, value.trim()),
-        "spectrum_rom" => config.spectrum_rom = value.trim().to_string(),
-        "kernal" => config.kernal = value.trim().to_string(),
-        "basic" => config.basic = value.trim().to_string(),
-        "chargen" => config.chargen = value.trim().to_string(),
+        "machine" => apply_machine(config, value),
+        "model" => apply_model(config, value),
+        "rom_folder" => config.rom_folder = Some(value.to_string()),
+        "spectrum_rom" => config.spectrum_rom = Some(value.to_string()),
+        "kernal" => config.kernal = Some(value.to_string()),
+        "basic" => config.basic = Some(value.to_string()),
+        "chargen" => config.chargen = Some(value.to_string()),
         _ => {}
     }
 }
@@ -211,4 +322,10 @@ fn machine_name(machine: MachineKind) -> &'static str {
 
 fn model_name(model_128: bool) -> &'static str {
     if model_128 { "128" } else { "48" }
+}
+
+fn push_opt(lines: &mut Vec<String>, key: &str, value: Option<&str>) {
+    if let Some(value) = value {
+        lines.push(format!("{key}={value}"));
+    }
 }

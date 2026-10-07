@@ -16,6 +16,7 @@ pub const MACHINE_48: &str = "machine-48";
 pub const MACHINE_128: &str = "machine-128";
 pub const MACHINE_C64: &str = "machine-c64";
 pub const MACHINE_START: &str = "machine-start";
+pub const SET_ROM_FOLDER: &str = "set-rom-folder";
 pub const SET_SPECTRUM_ROM: &str = "set-spectrum-rom";
 pub const SET_KERNAL: &str = "set-kernal";
 pub const SET_BASIC: &str = "set-basic";
@@ -31,6 +32,7 @@ pub struct MenuBar {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SettingsPath {
+    RomFolder,
     SpectrumRom,
     Kernal,
     Basic,
@@ -147,14 +149,23 @@ pub fn pick_path(window: Option<&Window>) -> Option<PathBuf> {
 }
 
 pub fn pick_rom_path(window: Option<&Window>, kind: SettingsPath) -> Option<PathBuf> {
+    if kind == SettingsPath::RomFolder {
+        return pick_rom_folder(window);
+    }
     let dialog = FileDialog::new()
         .set_title(kind.label())
         .add_filter("ROM", &["rom", "bin"]);
     parented(dialog, window).pick_file()
 }
 
+pub fn pick_rom_folder(window: Option<&Window>) -> Option<PathBuf> {
+    let dialog = FileDialog::new().set_title("ROM Folder");
+    parented(dialog, window).pick_folder()
+}
+
 pub fn settings_path(id: &str) -> Option<SettingsPath> {
     match id {
+        SET_ROM_FOLDER => Some(SettingsPath::RomFolder),
         SET_SPECTRUM_ROM => Some(SettingsPath::SpectrumRom),
         SET_KERNAL => Some(SettingsPath::Kernal),
         SET_BASIC => Some(SettingsPath::Basic),
@@ -235,7 +246,7 @@ fn machine_menu(
     let machine_128 =
         CheckMenuItem::with_id(MACHINE_128, "Spectrum 128K", true, config.is_spectrum_128(), None);
     let machine_c64 = CheckMenuItem::with_id(MACHINE_C64, "Commodore 64", true, config.is_c64(), None);
-    let start = MenuItem::with_id(MACHINE_START, "Start", true, Some(start_accelerator()));
+    let start = MenuItem::with_id(MACHINE_START, "Restart", true, Some(start_accelerator()));
     let separator = PredefinedMenuItem::separator();
     let menu = Submenu::with_items(
         "Machine",
@@ -246,11 +257,17 @@ fn machine_menu(
 }
 
 fn settings_menu() -> muda::Result<Submenu> {
+    let folder = MenuItem::with_id(SET_ROM_FOLDER, "ROM Folder…", true, None);
+    let separator = PredefinedMenuItem::separator();
     let spectrum = MenuItem::with_id(SET_SPECTRUM_ROM, "Spectrum ROM…", true, None);
     let kernal = MenuItem::with_id(SET_KERNAL, "C64 Kernal…", true, None);
     let basic = MenuItem::with_id(SET_BASIC, "C64 BASIC…", true, None);
     let chargen = MenuItem::with_id(SET_CHARGEN, "C64 Chargen…", true, None);
-    Submenu::with_items("Settings", true, &[&spectrum, &kernal, &basic, &chargen])
+    Submenu::with_items(
+        "Settings",
+        true,
+        &[&folder, &separator, &spectrum, &kernal, &basic, &chargen],
+    )
 }
 
 fn start_accelerator() -> Accelerator {
@@ -376,6 +393,7 @@ impl PictureSize {
 impl SettingsPath {
     pub fn label(self) -> &'static str {
         match self {
+            Self::RomFolder => "ROM Folder",
             Self::SpectrumRom => "Spectrum ROM",
             Self::Kernal => "C64 Kernal",
             Self::Basic => "C64 BASIC",

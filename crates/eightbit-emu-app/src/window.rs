@@ -193,17 +193,20 @@ impl App {
         self.state = SurfaceState::new(window.clone()).ok();
         self.menu = open_file::install_menu(&window, &self.config);
         self.window = Some(window);
+        if self.phase == AppPhase::Idle {
+            self.start_machine();
+        }
     }
 
     fn choose_file(&mut self) {
-        if self.phase != AppPhase::Running || self.picking {
+        if self.picking {
             return;
         }
         self.picking = true;
         let path = open_file::pick_path(self.window.as_deref());
         self.picking = false;
         if let Some(path) = path {
-            self.load_path(&path);
+            self.open_user_path(&path);
         }
     }
 
@@ -217,6 +220,7 @@ impl App {
         if let Some(menu) = &self.menu {
             menu.sync_machine(&self.config);
         }
+        self.start_machine();
     }
 
     fn pick_settings(&mut self, kind: SettingsPath) {
@@ -234,10 +238,11 @@ impl App {
 
     fn apply_settings_path(&mut self, kind: SettingsPath, path: String) {
         match kind {
-            SettingsPath::SpectrumRom => self.config.spectrum_rom = path,
-            SettingsPath::Kernal => self.config.kernal = path,
-            SettingsPath::Basic => self.config.basic = path,
-            SettingsPath::Chargen => self.config.chargen = path,
+            SettingsPath::RomFolder => self.config.rom_folder = Some(path),
+            SettingsPath::SpectrumRom => self.config.spectrum_rom = Some(path),
+            SettingsPath::Kernal => self.config.kernal = Some(path),
+            SettingsPath::Basic => self.config.basic = Some(path),
+            SettingsPath::Chargen => self.config.chargen = Some(path),
         }
         self.persist_config();
     }
@@ -249,7 +254,13 @@ impl App {
     }
 
     fn start_machine(&mut self) {
-        let launch = self.config.to_launch();
+        let launch = match self.config.to_launch() {
+            Ok(launch) => launch,
+            Err(error) => {
+                eprintln!("8bitemu: {error}");
+                return;
+            }
+        };
         let session = match session_from_launch(launch) {
             Ok(session) => session,
             Err(error) => {
@@ -272,10 +283,13 @@ impl App {
         self.phase = AppPhase::Running;
         self.picture = None;
         self.next_tick = Instant::now() - DISPLAY_FRAME;
+        if let Some(menu) = &self.menu {
+            menu.sync_machine(&self.config);
+        }
         self.retitle();
     }
 
-    fn load_path(&mut self, path: &std::path::Path) {
+    fn open_user_path(&mut self, path: &std::path::Path) {
         let bytes = match std::fs::read(path) {
             Ok(bytes) => bytes,
             Err(error) => {
@@ -283,16 +297,29 @@ impl App {
                 return;
             }
         };
-        self.load_bytes(&path.to_string_lossy(), &bytes);
-    }
-
-    fn load_bytes(&mut self, name: &str, bytes: &[u8]) {
-        let Some(kind) = open_file::open_kind(name) else {
+        let name = path.to_string_lossy();
+        let Some(kind) = open_file::open_kind(&name) else {
             eprintln!("8bitemu: {name} is not a rom, sna, tap, tzx, or prg");
             return;
         };
-        if let Err(error) = self.apply_open(kind, bytes) {
+        self.prepare_machine_for(kind, path, bytes.len());
+        if self.phase != AppPhase::Running {
+            return;
+        }
+        if let Err(error) = self.apply_open(kind, &bytes) {
             eprintln!("8bitemu: {error}");
+        }
+    }
+
+    fn prepare_machine_for(&mut self, kind: OpenKind, path: &std::path::Path, len: usize) {
+        self.config.apply_open_kind(kind, len);
+        if kind == OpenKind::Rom {
+            self.config.spectrum_rom = Some(path.to_string_lossy().into_owned());
+        }
+        self.persist_config();
+        let needs_boot = self.phase != AppPhase::Running || machine_mismatch(self, kind);
+        if needs_boot {
+            self.start_machine();
         }
     }
 
@@ -306,6 +333,7 @@ impl App {
     }
 
     fn open_prg(&mut self, bytes: &[u8]) -> Result<(), eightbit_emu_core::CoreError> {
+        self.presenter.warm_c64(250)?;
         self.presenter.load_prg(bytes)
     }
 
@@ -313,12 +341,14 @@ impl App {
         let model = open_file::rom_model_128(bytes.len(), self.model_128);
         self.presenter.load_rom(bytes, model)?;
         self.model_128 = model;
+        self.config.model_128 = model;
         Ok(())
     }
 
     fn open_sna(&mut self, bytes: &[u8]) -> Result<(), eightbit_emu_core::CoreError> {
         self.presenter.load_sna(bytes)?;
         self.model_128 = open_file::sna_model_128(bytes.len(), self.model_128);
+        self.config.model_128 = self.model_128;
         Ok(())
     }
 
@@ -346,11 +376,11 @@ impl App {
         if down && self.start_shortcut(code) {
             return;
         }
-        if self.phase != AppPhase::Running {
-            return;
-        }
         if down && open_file::command_open(self.modifiers.state(), code) {
             self.choose_file();
+            return;
+        }
+        if self.phase != AppPhase::Running {
             return;
         }
         if down && self.command_save(code) {
@@ -646,6 +676,13 @@ fn window_attrs(phase: AppPhase, presenter: &Presenter) -> winit::window::Window
     winit::window::Window::default_attributes()
         .with_title(title)
         .with_inner_size(LogicalSize::new(960.0, 720.0))
+}
+
+fn machine_mismatch(app: &App, kind: OpenKind) -> bool {
+    match kind {
+        OpenKind::Prg => !app.c64,
+        OpenKind::Rom | OpenKind::Sna | OpenKind::Tape => app.c64,
+    }
 }
 
 fn menu_toggles_sound() -> bool {

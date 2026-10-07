@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.14 — 2026-10-07
+
+- User-first shell: the app auto-starts the last machine, Machine menu choices boot immediately, and File → Open works from idle (switching machine by file type). ROMs resolve from a folder of standard names (`Settings → ROM Folder…`); per-file paths stay as optional overrides.
+
 ## 0.9.13 — 2026-10-07
 
 - Empty launch opens a shared shell window. Machine (Spectrum 48K/128K or C64) and ROM paths live under the menu and persist; Start boots that machine in the same window. CLI boot args still skip the launcher.

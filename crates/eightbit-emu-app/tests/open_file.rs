@@ -1,6 +1,7 @@
 use eightbit_emu_app::{
     ensure_extension, open_kind, picture_size, rom_model_128, save_kind, save_shortcut,
-    sna_model_128, OpenKind, PictureSize, SaveKind, MACHINE_START, SET_SPECTRUM_ROM,
+    sna_model_128, OpenKind, PictureSize, SaveKind, MACHINE_START, SET_ROM_FOLDER,
+    SET_SPECTRUM_ROM,
 };
 
 #[test]
@@ -34,10 +35,15 @@ fn menu_ids_select_the_size_and_the_save() {
     assert_eq!(save_shortcut(false, false, 's'), None);
     assert_eq!(eightbit_emu_app::LOADING_SOUND, "loading-sound");
     assert_eq!(MACHINE_START, "machine-start");
+    assert_eq!(SET_ROM_FOLDER, "set-rom-folder");
     assert_eq!(SET_SPECTRUM_ROM, "set-spectrum-rom");
     assert_eq!(
         eightbit_emu_app::machine_choice("machine-c64"),
         Some(eightbit_emu_app::MachineChoice::C64)
+    );
+    assert_eq!(
+        eightbit_emu_app::settings_path("set-rom-folder"),
+        Some(eightbit_emu_app::SettingsPath::RomFolder)
     );
     assert_eq!(
         eightbit_emu_app::settings_path("set-kernal"),
