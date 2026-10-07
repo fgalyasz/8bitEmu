@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.15 — 2026-10-07
+
+- After a tape load has progressed, the tape slot clears so Reset is a clean reboot instead of rewinding the last `.tap`/`.tzx` and running LOAD again.
+
 ## 0.9.14 — 2026-10-07
 
 - User-first shell: the app auto-starts the last machine, Machine menu choices boot immediately, and File → Open works from idle (switching machine by file type). ROMs resolve from a folder of standard names (`Settings → ROM Folder…`); per-file paths stay as optional overrides.

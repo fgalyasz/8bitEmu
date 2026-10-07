@@ -1,6 +1,6 @@
 use eightbit_emu_core::{
     aspect_fit, load_prompt, open_tape, percent_size, place_percent, BORDER, CONTENT_HEIGHT,
-    CONTENT_WIDTH, CoreError, Machine, Memory, Ports, PresentPace, Presenter, Recorder,
+    CONTENT_WIDTH, CoreError, Machine, Memory, Player, Ports, PresentPace, Presenter, Recorder,
 };
 
 #[test]
@@ -177,6 +177,48 @@ fn a_saved_128k_image_keeps_the_paging_byte() {
     let mut short = [0u8; 4];
     memory.copy_bank(9, &mut short);
     assert_eq!(short, [0, 0, 0, 0]);
+}
+
+#[test]
+fn spent_tape_clears_and_reset_keeps_only_unused() {
+    let mut player = open_tape(&tap_block(&[0x00, 0x00]), false).expect("tap");
+    assert!(!player.spent());
+    drain_tape(&mut player);
+    assert!(player.spent());
+
+    let mut unused = Machine::new();
+    unused
+        .load_rom(&vec![0x76u8; 16384], false)
+        .expect("rom");
+    unused.load_tape(&tap_block(&[0x00, 0x00])).expect("tape");
+    unused.reset();
+    assert!(unused.has_tape());
+    assert!(unused.tape_at_start());
+
+    let mut used = polling_rom();
+    used.load_tape(&tap_block(&[0x00, 0x00])).expect("tape");
+    used.frame().expect("arm");
+    used.frame().expect("play");
+    assert!(!used.tape_at_start());
+    used.reset();
+    assert!(!used.has_tape());
+
+    let mut finished = polling_rom();
+    finished.load_tape(&tap_block(&[0x00])).expect("tape");
+    let mut frame = 0u32;
+    while finished.has_tape() && frame < 4_000 {
+        finished.frame().expect("frame");
+        frame += 1;
+    }
+    assert!(!finished.has_tape());
+}
+
+fn drain_tape(player: &mut Player) {
+    let mut guard = 0u32;
+    while player.playing() && guard < 10_000 {
+        player.advance(5_000_000);
+        guard += 1;
+    }
 }
 
 #[test]

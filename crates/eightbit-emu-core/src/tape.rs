@@ -75,6 +75,10 @@ impl Player {
         !self.stopped && self.index < self.edges.len()
     }
 
+    pub fn spent(&self) -> bool {
+        !self.at_start() && !self.playing()
+    }
+
     pub fn ear_high(&self) -> bool {
         if !self.playing() {
             return true;

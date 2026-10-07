@@ -158,6 +158,12 @@ impl Machine {
         self.player.is_some()
     }
 
+    pub fn drop_spent_tape(&mut self) {
+        if self.player.as_ref().is_some_and(Player::spent) {
+            self.player = None;
+        }
+    }
+
     pub fn is_booted(&self) -> bool {
         self.booted
     }
@@ -207,11 +213,20 @@ impl Machine {
         self.ports.speaker = 0;
         self.ports.mic = false;
         self.memory.page(0);
-        if let Some(player) = &mut self.player {
-            player.rewind();
-        }
+        self.clear_used_tape();
         self.ear_live = false;
         self.stop_phase = 0;
+    }
+
+    fn clear_used_tape(&mut self) {
+        let unused = self.player.as_ref().is_some_and(Player::at_start);
+        if unused {
+            if let Some(player) = &mut self.player {
+                player.rewind();
+            }
+            return;
+        }
+        self.player = None;
     }
 
     fn run_cpu_frame(&mut self) -> Result<(), CoreError> {
@@ -223,6 +238,7 @@ impl Machine {
         self.paint_reached(beam, &mut next);
         self.run_to_frame_end(&mut beam, &mut next)?;
         self.finish_ear();
+        self.drop_spent_tape();
         Ok(())
     }
 

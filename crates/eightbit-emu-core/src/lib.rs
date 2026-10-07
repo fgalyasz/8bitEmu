@@ -39,7 +39,7 @@ pub use mailbox::Mailbox;
 pub use memory::Memory;
 pub use presenter::Presenter;
 pub use scale::{Viewport, aspect_fit, centered_viewport, integer_scale, percent_size, place_percent};
-pub use tape::{KeyHold, Recorder, load_prompt, open_tape};
+pub use tape::{KeyHold, Player, Recorder, load_prompt, open_tape};
 pub use shade::shade_image;
 pub use temporal::{Blend, TemporalDecision, TemporalHistory};
 pub use z80::{Cpu, Ports, step};
