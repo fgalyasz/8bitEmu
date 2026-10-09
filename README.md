@@ -49,3 +49,7 @@ See `roms/README.md`. Defaults are `roms/c64-kernal.rom`, `c64-basic.rom`, and
 `c64-chargen.rom` (gitignored). Open ROMs boots legally but its BASIC is incomplete.
 For real `PRINT` / software compatibility, place stock images you own (e.g. C64 Forever)
 under those names. Stock dumps are never committed.
+
+## License
+
+MIT. See [LICENSE](LICENSE). System ROMs and game images are not covered and are not included.
