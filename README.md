@@ -1,5 +1,7 @@
 # 8bitEmu
 
+![8bitEmu running the ZX Spectrum 128K menu](docs/images/spectrum-128k.png)
+
 Cross-platform Spectrum and C64 player. With no arguments the window runs a small Z80 program in 48K RAM: blue border, three bright lines, and a cell that steps through the ink colors. Pass a ROM or an SNA the user already has to boot a 48K or basic 128K Spectrum. A TAP or TZX plays through the ear bit. A booted 48K machine types `LOAD ""`. A booted 128K machine presses Enter for Tape Loader. `--machine c64` boots a Commodore 64 from ROMs in `roms/c64-*.rom` (or `--kernal` / `--basic` / `--chargen`). `--prg file.prg` selects C64, waits for boot, soft-loads the PRG, and auto-starts it. File → Open… also accepts `.prg` on a C64 session. The C64 shows VIC text and bitmap modes with sprites, the Colodore palette, a CIA keyboard, and SID tones (no filter yet). The picture fits the window, or snaps to 125%, 150%, 175%, and 200%. No ROM is included in git.
 
 ```
