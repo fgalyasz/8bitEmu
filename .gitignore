@@ -1,5 +1,6 @@
 /target
 /dist/
+.gateway-site/
 /roms/*
 !/roms/README.md
 **/*.rs.bk
