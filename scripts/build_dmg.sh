@@ -2,6 +2,15 @@
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+version_file="${root}/docs/version.txt"
+current="0.9.15"
+if [[ -f "${version_file}" ]]; then
+  current="$(tr -d ' \t\n\r' < "${version_file}")"
+fi
+IFS=. read -r major minor patch <<< "${current}"
+patch=$((patch + 1))
+app_version="${major}.${minor}.${patch}"
+printf '%s' "${app_version}" > "${version_file}"
 identity="8bitEmu Local"
 keychain="${HOME}/Library/Keychains/8bitemu-signing.keychain-db"
 dist="${root}/dist"
@@ -15,7 +24,7 @@ rm -rf "${app}"
 mkdir -p "${macos}"
 cp "${binary}" "${macos}/8bitEmu"
 chmod +x "${macos}/8bitEmu"
-cat > "${app}/Contents/Info.plist" <<'EOF'
+cat > "${app}/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -29,7 +38,7 @@ cat > "${app}/Contents/Info.plist" <<'EOF'
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
-  <string>0.9.15</string>
+  <string>${app_version}</string>
   <key>LSMinimumSystemVersion</key>
   <string>13.0</string>
 </dict>
