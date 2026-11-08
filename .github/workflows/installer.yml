@@ -14,14 +14,30 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+        with:
+          path: 8bitEmu
+          token: ${{ secrets.ACTIONS_PUSH_TOKEN }}
+      - uses: actions/checkout@v4
+        with:
+          repository: fgalyasz/TenPrintSoftware
+          path: TenPrintSoftware
+          token: ${{ secrets.ACTIONS_PUSH_TOKEN }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
       - uses: dtolnay/rust-toolchain@stable
+      - name: Install company site tools
+        working-directory: TenPrintSoftware
+        run: npm ci
       - name: Import signing identity
+        working-directory: 8bitEmu
         env:
           CODESIGN_P12_BASE64: ${{ secrets.CODESIGN_P12_BASE64 }}
           CODESIGN_P12_PASSWORD: ${{ secrets.CODESIGN_P12_PASSWORD }}
           CODESIGN_KEYCHAIN_PASSWORD: ${{ secrets.CODESIGN_KEYCHAIN_PASSWORD }}
         run: bash scripts/ci_import_signing.sh 8bitemu-signing "8bitEmu Local"
       - name: Build installer image
+        working-directory: 8bitEmu
         run: |
           chmod +x ./scripts/build_dmg.sh ./scripts/build-release.sh ./scripts/ci_import_signing.sh ./scripts/ci_commit_release.sh
           ./scripts/build_dmg.sh
@@ -33,13 +49,26 @@ jobs:
           printf '%s\n' "${WRANGLER_CONFIG}" > "${HOME}/Library/Preferences/.wrangler/config/default.toml"
           chmod 600 "${HOME}/Library/Preferences/.wrangler/config/default.toml"
       - name: Deploy product site
+        working-directory: 8bitEmu
         run: |
           chmod +x ./scripts/deploy_site.sh
           ./scripts/deploy_site.sh
+      - name: Publish company catalogue
+        working-directory: TenPrintSoftware
+        run: |
+          npm run sync:versions
+          npm run build
+          npm run deploy
       - name: Commit version
+        working-directory: 8bitEmu
         run: bash scripts/ci_commit_release.sh
+      - name: Commit company catalogue version
+        working-directory: 8bitEmu
+        env:
+          TENPRINT_ROOT: ${{ github.workspace }}/TenPrintSoftware
+        run: bash scripts/ci_commit_release.sh company
       - uses: actions/upload-artifact@v4
         with:
           name: 8bitEmu-installer
-          path: dist/8bitEmu.dmg
+          path: 8bitEmu/dist/8bitEmu.dmg
           if-no-files-found: error
